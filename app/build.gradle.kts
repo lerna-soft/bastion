@@ -13,8 +13,8 @@ android {
         applicationId = "com.bastion.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 32
-        versionName = "1.1.20"
+        versionCode = 33
+        versionName = "1.1.21"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -33,6 +33,19 @@ android {
 
     buildTypes {
         debug {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        // Build de distribución: Android marca debuggable=true en cualquier build tipo `debug`
+        // sin importar la firma, y eso dispara avisos extra ("app para desarrolladores") al
+        // instalar fuera de Play Store. release{} es debuggable=false por defecto, firmado con
+        // el mismo keystore. isMinifyEnabled=false a propósito: SSHD/BouncyCastle usan mucha
+        // reflexión y no está probado el shrink con estas libs — mismo riesgo que debug.
+        release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(
