@@ -137,15 +137,22 @@ fun TerminalTab(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showCommandPalette by remember { mutableStateOf(false) }
 
-    val bridge = remember { mutableStateOf<TerminalBridge?>(null) }
-
-    val webView = remember {
+    // Keyed by session: in a HorizontalPager the page slots are recycled, so without the
+    // `session` key these remember{} blocks kept the WebView/scope/bridge of a *previous*
+    // session when a slot was reused — which showed the wrong terminal ("tab replacement" bug).
+    val webView = remember(session) {
         webViewCache.getOrPut(session) {
-            createWebView(context, session, bridge)
+            createWebView(context, session)
         }
     }
 
-    val scope = remember {
+    // The TerminalBridge is attached to the WebView as its tag when created, so we recover it
+    // here for both cache-miss (fresh) and cache-hit (already built) WebViews.
+    val bridge = remember(session) {
+        mutableStateOf(webView.tag as? TerminalBridge)
+    }
+
+    val scope = remember(session) {
         terminalScopes.getOrPut(session) {
             CoroutineScope(SupervisorJob() + Dispatchers.IO)
         }
@@ -742,8 +749,7 @@ private fun SpecialKeyButton(label: String, onClick: () -> Unit) {
 
 private fun createWebView(
     context: Context,
-    session: SshSession,
-    bridge: androidx.compose.runtime.MutableState<TerminalBridge?>
+    session: SshSession
 ): WebView {
     val wv = WebView(context).apply {
         layoutParams = ViewGroup.LayoutParams(
@@ -777,7 +783,8 @@ private fun createWebView(
         br.setOnResizeCallback { cols, rows ->
             session.resize(cols, rows)
         }
-        bridge.value = br
+        // Attach the bridge to the WebView so the composable can recover it on cache hits.
+        tag = br
 
         loadUrl("file:///android_asset/terminal/index.html")
     }

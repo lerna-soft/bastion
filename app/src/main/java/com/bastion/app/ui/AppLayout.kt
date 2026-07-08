@@ -11,6 +11,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +48,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -73,6 +76,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bastion.app.data.Host
 import com.bastion.app.data.HostWithSecret
 import com.bastion.app.data.VaultRepository
 import com.bastion.app.logging.RemoteLogger
@@ -182,6 +186,8 @@ fun AppLayout(
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var showStats by remember { mutableStateOf(false) }
+    var showHostPicker by remember { mutableStateOf(false) }
+    val allHosts by repository.getAllHosts().collectAsState(initial = emptyList())
     val anySessionActive = terminalSessions.any {
         val s = it.session.state.value
         s == com.bastion.app.ssh.SessionState.SHELL_ACTIVE
@@ -233,6 +239,7 @@ fun AppLayout(
                                             pagerState = pagerState,
                                             webViewCache = webViewCache,
                                             onCloseSession = { closeTerminalSession(it) },
+                                            onNewTab = { showHostPicker = true },
                                             showStats = showStats,
                                             onToggleStats = { showStats = !showStats },
                                             fontSize = fontSize,
@@ -283,6 +290,77 @@ fun AppLayout(
             }
         }
     }
+
+    if (showHostPicker) {
+        NewTabHostPicker(
+            hosts = allHosts,
+            onDismiss = { showHostPicker = false },
+            onPick = { host ->
+                showHostPicker = false
+                scope.launch {
+                    repository.getHostWithSecret(host.id)?.let { openTerminalSession(it) }
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun NewTabHostPicker(
+    hosts: List<Host>,
+    onDismiss: () -> Unit,
+    onPick: (Host) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nueva pestaña") },
+        text = {
+            if (hosts.isEmpty()) {
+                Text(
+                    "No hay servidores guardados. Agrega uno desde la sección Servers.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp
+                )
+            } else {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    hosts.forEach { host ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(host) }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Dns,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Column {
+                                Text(
+                                    host.name,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    "${host.username}@${host.hostname}:${host.port}",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cerrar") }
+        }
+    )
 }
 
 @Composable
@@ -765,6 +843,7 @@ private fun TerminalPagerContent(
     pagerState: PagerState,
     webViewCache: MutableMap<SshSession, WebView>,
     onCloseSession: (Int) -> Unit,
+    onNewTab: () -> Unit,
     showStats: Boolean,
     onToggleStats: () -> Unit,
     fontSize: Int = 14,
@@ -779,6 +858,7 @@ private fun TerminalPagerContent(
                 kotlinx.coroutines.MainScope().launch { pagerState.animateScrollToPage(index) }
             },
             onTabClose = onCloseSession,
+            onNewTab = onNewTab,
             onToggleStats = onToggleStats,
             showStats = showStats
         )
@@ -813,6 +893,7 @@ private fun SessionTabBar(
     activeSessionIndex: Int,
     onTabClick: (Int) -> Unit,
     onTabClose: (Int) -> Unit,
+    onNewTab: () -> Unit,
     onToggleStats: () -> Unit,
     showStats: Boolean
 ) {
@@ -883,6 +964,23 @@ private fun SessionTabBar(
                     )
                 }
             }
+        }
+
+        // "+" — open a new terminal tab (picks a host from the vault).
+        Box(
+            modifier = Modifier
+                .padding(vertical = 6.dp, horizontal = 4.dp)
+                .size(28.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .clickable(onClick = onNewTab),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Add,
+                contentDescription = "New tab",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
         }
 
         Box(
