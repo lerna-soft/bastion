@@ -82,16 +82,6 @@ import com.bastion.app.ui.theme.ColorMode
 import com.bastion.app.ui.theme.MonokaiBackground
 import com.bastion.app.ui.theme.MonokaiOnSurface
 import com.bastion.app.ui.theme.MonokaiPrimary
-import com.bastion.app.ui.theme.StitchOnSurface
-import com.bastion.app.ui.theme.StitchOnSurfaceVariant
-import com.bastion.app.ui.theme.StitchOutlineVariant
-import com.bastion.app.ui.theme.StitchPrimary
-import com.bastion.app.ui.theme.StitchPrimaryContainer
-import com.bastion.app.ui.theme.StitchPrimaryFixedDim
-import com.bastion.app.ui.theme.StitchSecondary
-import com.bastion.app.ui.theme.StitchSecondaryContainer
-import com.bastion.app.ui.theme.StitchSurface
-import com.bastion.app.ui.theme.StitchSurfaceContainerLow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -186,8 +176,8 @@ private fun SettingsSidebar(activeSection: String, onSectionSelected: (String) -
     ) {
         settingsSections.forEach { (id, label) ->
             val isActive = id == activeSection
-            val bg = if (isActive) StitchSecondary.copy(alpha = 0.1f) else Color.Transparent
-            val textColor = if (isActive) StitchSecondary else StitchOnSurfaceVariant
+            val bg = if (isActive) MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f) else Color.Transparent
+            val textColor = if (isActive) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant
             Row(
                 modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(bg)
                     .clickable { onSectionSelected(id) }
@@ -208,12 +198,12 @@ private fun SettingsSidebar(activeSection: String, onSectionSelected: (String) -
 private fun SectionCard(title: String, icon: ImageVector, content: @Composable () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-            .background(StitchSurfaceContainerLow)
-            .border(1.dp, StitchOutlineVariant, RoundedCornerShape(12.dp)).padding(24.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)).padding(24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(icon, contentDescription = null, tint = StitchPrimaryFixedDim, modifier = Modifier.size(20.dp))
-            Text(title, style = MaterialTheme.typography.titleMedium, color = StitchOnSurface,
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(20.dp))
@@ -223,7 +213,7 @@ private fun SectionCard(title: String, icon: ImageVector, content: @Composable (
 
 @Composable
 private fun SectionLabel(label: String) {
-    Text(label.uppercase(), color = StitchOnSurfaceVariant, fontSize = 11.sp,
+    Text(label.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
         fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
 }
 
@@ -250,7 +240,7 @@ private fun SelectField(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .border(1.dp, StitchOutlineVariant, RoundedCornerShape(8.dp))
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
                     .clickable { expanded = !expanded }
                     .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
@@ -259,12 +249,12 @@ private fun SelectField(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(selected, color = StitchOnSurface, fontSize = 14.sp)
+                    Text(selected, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp)
                     Icon(
                         imageVector = if (expanded)
                             Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
                         contentDescription = null,
-                        tint = StitchOnSurfaceVariant,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -275,7 +265,7 @@ private fun SelectField(
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option, color = StitchOnSurface, fontSize = 14.sp) },
+                        text = { Text(option, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp) },
                         onClick = { onSelected(option); expanded = false }
                     )
                 }
@@ -299,16 +289,16 @@ private fun TextField(label: String, value: String, onValueChange: (String) -> U
             keyboardOptions = if (password) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions.Default,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = if (monospace) FontFamily.Monospace else FontFamily.Default,
-                color = StitchOnSurface
+                color = MaterialTheme.colorScheme.onSurface
             ),
             modifier = modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = StitchSecondaryContainer,
-                unfocusedBorderColor = StitchOutlineVariant,
+                focusedBorderColor = MaterialTheme.colorScheme.secondaryContainer,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                focusedTextColor = StitchOnSurface,
-                unfocusedTextColor = StitchOnSurface
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface
             ),
             shape = RoundedCornerShape(8.dp)
         )
@@ -325,14 +315,14 @@ private fun ToggleRow(title: String, description: String, checked: Boolean,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = StitchOnSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text(description, color = StitchOnSurfaceVariant, fontSize = 12.sp)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
         Spacer(Modifier.width(12.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White, checkedTrackColor = StitchSecondary,
-                uncheckedThumbColor = Color.White, uncheckedTrackColor = StitchOutlineVariant
+                checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.secondary,
+                uncheckedThumbColor = Color.White, uncheckedTrackColor = MaterialTheme.colorScheme.outlineVariant
             ))
     }
 }
@@ -406,20 +396,20 @@ private fun AppearanceSection(
                     val isSelected = colorMode == mode
                     val bgColor = when (mode) {
                         ColorMode.DARK -> MaterialTheme.colorScheme.surfaceDim
-                        ColorMode.STITCH_GREEN -> StitchSurface
+                        ColorMode.STITCH_GREEN -> MaterialTheme.colorScheme.surface
                         ColorMode.LIGHT -> Color.White
                         ColorMode.MONOKAI -> MonokaiBackground
                         ColorMode.OLED_DARK -> Color.Black
                         ColorMode.SYSTEM -> MaterialTheme.colorScheme.surfaceVariant
                     }
-                    val borderColor = if (isSelected) StitchSecondaryContainer else StitchOutlineVariant
+                    val borderColor = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.outlineVariant
                     val textColor = when (mode) {
-                        ColorMode.DARK -> StitchOnSurface
-                        ColorMode.STITCH_GREEN -> StitchOnSurface
+                        ColorMode.DARK -> MaterialTheme.colorScheme.onSurface
+                        ColorMode.STITCH_GREEN -> MaterialTheme.colorScheme.onSurface
                         ColorMode.LIGHT -> Color(0xFF1C2023)
                         ColorMode.MONOKAI -> MonokaiOnSurface
                         ColorMode.OLED_DARK -> Color(0xFFE0E0E0)
-                        ColorMode.SYSTEM -> StitchOnSurface
+                        ColorMode.SYSTEM -> MaterialTheme.colorScheme.onSurface
                     }
                     Box(
                         modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
@@ -431,10 +421,10 @@ private fun AppearanceSection(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
                                 .background(bgColor)
-                                .border(1.dp, StitchOutlineVariant.copy(alpha = 0.3f), RoundedCornerShape(6.dp)))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(6.dp)))
                             Spacer(Modifier.height(8.dp))
                             Text(label,
-                                color = if (isSelected) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 13.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                         }
@@ -446,27 +436,27 @@ private fun AppearanceSection(
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             SectionLabel("Font Size")
-            Text("${fontSize.toInt()}px", color = StitchPrimaryFixedDim, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+            Text("${fontSize.toInt()}px", color = MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
         }
         Spacer(Modifier.height(8.dp))
         Slider(value = fontSize, onValueChange = onFontSizeChange,
             valueRange = 12f..20f, steps = 7,
-            colors = SliderDefaults.colors(thumbColor = StitchPrimaryContainer,
-                activeTrackColor = StitchPrimaryContainer, inactiveTrackColor = StitchOutlineVariant))
+            colors = SliderDefaults.colors(thumbColor = MaterialTheme.colorScheme.primaryContainer,
+                activeTrackColor = MaterialTheme.colorScheme.primaryContainer, inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Compact", color = StitchOnSurfaceVariant, fontSize = 10.sp)
-            Text("Default", color = StitchOnSurfaceVariant, fontSize = 10.sp)
-            Text("Large", color = StitchOnSurfaceVariant, fontSize = 10.sp)
+            Text("Compact", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+            Text("Default", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+            Text("Large", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
         }
         Spacer(Modifier.height(16.dp))
         Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .border(1.dp, StitchOutlineVariant, RoundedCornerShape(8.dp)).padding(16.dp)) {
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(16.dp)) {
             Column {
-                Text("Preview Terminal Text:", color = StitchOnSurfaceVariant, fontSize = 11.sp)
+                Text("Preview Terminal Text:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                 Spacer(Modifier.height(6.dp))
                 Text("[admin@bastion ~]$ ssh root@server-01\nAuthentication successful.",
-                    color = StitchSecondary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                    color = MaterialTheme.colorScheme.secondary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
             }
         }
     }
@@ -506,8 +496,8 @@ private fun ApiKeysSection(
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.clickable { showCreateKey = true }) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = StitchPrimaryContainer, modifier = Modifier.size(16.dp))
-                Text("Create New Key", color = StitchPrimaryContainer, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(16.dp))
+                Text("Create New Key", color = MaterialTheme.colorScheme.primaryContainer, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -528,7 +518,7 @@ private fun ApiKeysSection(
                 }
             )
             if (index < apiKeys.lastIndex) {
-                HorizontalDivider(color = StitchOutlineVariant, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
             }
         }
     }
@@ -566,14 +556,14 @@ private fun ApiKeyRow(label: String, keyValue: String, created: String,
         modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = StitchOnSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+        Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f))
-        Text(keyValue, color = StitchOnSurfaceVariant, fontSize = 13.sp, fontFamily = FontFamily.Monospace,
+        Text(keyValue, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontFamily = FontFamily.Monospace,
             modifier = Modifier.weight(1.5f))
-        Text(created, color = StitchOnSurfaceVariant, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Text(created, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.ContentCopy, contentDescription = "Copy",
-                tint = StitchPrimaryFixedDim, modifier = Modifier.size(20.dp).clickable(onClick = onCopy).padding(2.dp))
+                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp).clickable(onClick = onCopy).padding(2.dp))
             Icon(Icons.Default.DeleteForever, contentDescription = "Revoke",
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(20.dp).clickable(onClick = onRevoke).padding(2.dp))
@@ -587,35 +577,35 @@ private fun AboutSection() {
 
     Box(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-            .background(StitchSurfaceContainerLow)
-            .border(1.dp, StitchOutlineVariant, RoundedCornerShape(12.dp)).padding(32.dp),
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)).padding(32.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .border(1.dp, StitchOutlineVariant, RoundedCornerShape(16.dp)),
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Security, contentDescription = null, tint = StitchPrimaryFixedDim,
+                Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(32.dp))
             }
             Spacer(Modifier.height(16.dp))
             Text("Bastion Server Admin", style = MaterialTheme.typography.headlineSmall,
-                color = StitchOnSurface, fontWeight = FontWeight.Bold)
+                color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text("Advanced high-fidelity server management for critical enterprise infrastructure.",
-                color = StitchOnSurfaceVariant, fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
                 modifier = Modifier.padding(horizontal = 40.dp))
             Spacer(Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     SectionLabel("Version")
-                    Text(BuildConfig.VERSION_NAME, color = StitchSecondary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                    Text(BuildConfig.VERSION_NAME, color = MaterialTheme.colorScheme.secondary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                 }
-                Box(modifier = Modifier.width(1.dp).height(32.dp).background(StitchOutlineVariant))
+                Box(modifier = Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     SectionLabel("Engine")
-                    Text("v${BuildConfig.VERSION_NAME}", color = StitchOnSurface, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                    Text("v${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                 }
             }
             Spacer(Modifier.height(24.dp))
@@ -633,7 +623,7 @@ private fun AboutSection() {
             }
             Spacer(Modifier.height(24.dp))
             Text("\u00A9 2026 Bastion Core Technologies Inc. All Rights Reserved.",
-                color = StitchOnSurfaceVariant.copy(alpha = 0.5f), fontSize = 10.sp, letterSpacing = 2.sp)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontSize = 10.sp, letterSpacing = 2.sp)
         }
     }
 }
@@ -643,15 +633,15 @@ private fun AboutButton(text: String, primary: Boolean = false, onClick: () -> U
     if (primary) {
         Box(modifier = Modifier.clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .border(1.dp, StitchPrimaryContainer.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
             .clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)) {
-            Text(text, color = StitchPrimaryContainer, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(text, color = MaterialTheme.colorScheme.primaryContainer, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     } else {
         Box(modifier = Modifier.clip(RoundedCornerShape(8.dp))
-            .border(1.dp, StitchOutlineVariant, RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)) {
-            Text(text, color = StitchOnSurface, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(text, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

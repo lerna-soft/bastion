@@ -47,6 +47,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,27 +70,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.bastion.app.logging.RemoteLogger
+import com.bastion.app.ssh.AuthConfig
 import com.bastion.app.ssh.ConnectionError
 import com.bastion.app.ssh.SessionState
 import com.bastion.app.ssh.SshSession
+import com.bastion.app.ui.theme.BastionTheme
+import com.bastion.app.ui.theme.ColorMode
+import com.bastion.app.ui.theme.MonokaiBackground
+import com.bastion.app.ui.theme.NeutralDarkBackground
+import com.bastion.app.ui.theme.OledDarkBackground
 import com.bastion.app.ui.theme.StitchBackground
-import com.bastion.app.ui.theme.StitchError
-import com.bastion.app.ui.theme.StitchOnError
-import com.bastion.app.ui.theme.StitchOnPrimaryFixed
-import com.bastion.app.ui.theme.StitchOnSurface
-import com.bastion.app.ui.theme.StitchOnSurfaceVariant
-import com.bastion.app.ui.theme.StitchOutline
-import com.bastion.app.ui.theme.StitchOutlineVariant
-import com.bastion.app.ui.theme.StitchPrimaryContainer
-import com.bastion.app.ui.theme.StitchPrimaryFixedDim
-import com.bastion.app.ui.theme.StitchSecondary
-import com.bastion.app.ui.theme.StitchSecondaryContainer
-import com.bastion.app.ui.theme.StitchSurfaceContainer
-import com.bastion.app.ui.theme.StitchSurfaceContainerHigh
-import com.bastion.app.ui.theme.StitchSurfaceContainerHighest
-import com.bastion.app.ui.theme.StitchSurfaceContainerLow
-import com.bastion.app.ui.theme.StitchSurfaceContainerLowest
-import com.bastion.app.ui.theme.StitchTertiaryContainer
+import com.bastion.app.ui.theme.StitchLightBackground
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -99,15 +90,27 @@ import kotlinx.coroutines.launch
 
 private data class ThemeOption(val id: String, val label: String, val color: Color)
 
-private val themes = listOf(
-    ThemeOption("stitch", "Stitch", StitchBackground),
-    ThemeOption("default", "Oscuro", Color(0xFF1E1E1E)),
-    ThemeOption("light", "Claro", Color.White),
-    ThemeOption("monokai", "Monokai", Color(0xFF272822)),
-    ThemeOption("solarized-dark", "Solarized", Color(0xFF002B36)),
-    ThemeOption("dracula", "Dracula", Color(0xFF282A36)),
-    ThemeOption("nord", "Nord", Color(0xFF2E3440))
+private data class TerminalThemeOption(
+    val mode: ColorMode,
+    val label: String,
+    val preview: Color
 )
+
+private val terminalThemes = listOf(
+    TerminalThemeOption(ColorMode.DARK, "Neutral", NeutralDarkBackground),
+    TerminalThemeOption(ColorMode.STITCH_GREEN, "Stitch", StitchBackground),
+    TerminalThemeOption(ColorMode.LIGHT, "Light", StitchLightBackground),
+    TerminalThemeOption(ColorMode.MONOKAI, "Monokai", MonokaiBackground),
+    TerminalThemeOption(ColorMode.OLED_DARK, "OLED", OledDarkBackground),
+    TerminalThemeOption(ColorMode.SYSTEM, "System", NeutralDarkBackground)
+)
+
+private fun jsThemeFor(mode: ColorMode): String = when (mode) {
+    ColorMode.STITCH_GREEN -> "stitch"
+    ColorMode.LIGHT -> "light"
+    ColorMode.MONOKAI -> "monokai"
+    else -> "default"
+}
 
 private val terminalScopes = mutableMapOf<SshSession, CoroutineScope>()
 
@@ -124,6 +127,8 @@ fun TerminalTab(
     showStats: Boolean = false,
     onToggleStats: () -> Unit = {},
     fontSize: Int = 14,
+    terminalColorMode: ColorMode = ColorMode.DARK,
+    onThemeChange: (ColorMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by session.state.collectAsState()
@@ -181,6 +186,7 @@ fun TerminalTab(
         bridge.value?.setFontSize(fontSize)
     }
 
+    BastionTheme(colorMode = terminalColorMode, applyStatusBar = false) {
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             ServerInfoBar(
@@ -196,7 +202,7 @@ fun TerminalTab(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .background(StitchBackground)
+                    .background(MaterialTheme.colorScheme.background)
                     .clickable {
                         webView.requestFocus()
                         val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -259,13 +265,15 @@ fun TerminalTab(
 
     if (showThemeDialog) {
         ThemePickerDialog(
-            currentTheme = null,
-            onSelect = { themeId ->
-                bridge.value?.setColorTheme(themeId)
+            currentMode = terminalColorMode,
+            onSelect = { mode ->
+                bridge.value?.setColorTheme(jsThemeFor(mode))
+                onThemeChange(mode)
                 showThemeDialog = false
             },
             onDismiss = { showThemeDialog = false }
         )
+    }
     }
 }
 
@@ -284,10 +292,10 @@ private fun ServerInfoBar(
 ) {
     val isConnected = state == SessionState.SHELL_ACTIVE
     val indicatorColor = when {
-        isConnected -> StitchPrimaryContainer
-        state == SessionState.ERROR -> StitchError
-        state == SessionState.CONNECTING || state == SessionState.AUTHENTICATING -> StitchTertiaryContainer
-        else -> StitchOutline
+        isConnected -> MaterialTheme.colorScheme.primaryContainer
+        state == SessionState.ERROR -> MaterialTheme.colorScheme.error
+        state == SessionState.CONNECTING || state == SessionState.AUTHENTICATING -> MaterialTheme.colorScheme.tertiaryContainer
+        else -> MaterialTheme.colorScheme.outline
     }
     val statusText = when (state) {
         SessionState.SHELL_ACTIVE -> "Connected"
@@ -302,7 +310,7 @@ private fun ServerInfoBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(StitchSurfaceContainerLow)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -319,7 +327,7 @@ private fun ServerInfoBar(
         Spacer(Modifier.width(8.dp))
         Text(
             text = title.ifBlank { hostname },
-            color = StitchPrimaryFixedDim,
+            color = MaterialTheme.colorScheme.primary,
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             fontFamily = FontFamily.Monospace,
@@ -341,6 +349,7 @@ fun SystemStatsPanel(
     hostname: String,
     isConnected: Boolean,
     session: SshSession?,
+    authConfig: AuthConfig? = null,
     onClose: () -> Unit
 ) {
     val panelWidth by animateDpAsState(
@@ -349,8 +358,8 @@ fun SystemStatsPanel(
         label = "statsWidth"
     )
 
-    val collector = remember(isConnected, session) {
-        if (isConnected && session != null) StatsCollector(session) else null
+    val collector = remember(isConnected, session, authConfig) {
+        if (isConnected && authConfig != null) StatsCollector(authConfig) else null
     }
 
     val stats = collector?.stats?.collectAsState()?.value ?: SystemStats()
@@ -367,7 +376,7 @@ fun SystemStatsPanel(
         modifier = Modifier
             .width(panelWidth)
             .fillMaxHeight()
-            .background(StitchSurfaceContainer)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(12.dp)
     ) {
         Row(
@@ -378,13 +387,13 @@ fun SystemStatsPanel(
             Column {
                 Text(
                     text = "System Stats",
-                    color = StitchOnSurface,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = hostname.ifBlank { "—" },
-                    color = StitchOutline,
+                    color = MaterialTheme.colorScheme.outline,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
@@ -400,7 +409,7 @@ fun SystemStatsPanel(
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = StitchOnSurfaceVariant,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -427,11 +436,11 @@ fun SystemStatsPanel(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color = StitchPrimaryContainer
+                                color = MaterialTheme.colorScheme.primaryContainer
                             )
                             Text(
                                 text = "Collecting metrics...",
-                                color = StitchOnSurfaceVariant,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -442,23 +451,23 @@ fun SystemStatsPanel(
                         label = "CPU Load",
                         value = "${String.format("%.1f", stats.cpuUsage * 100)}% (${stats.cpuCores} cores)",
                         progress = stats.cpuUsage,
-                        color = StitchPrimaryContainer
+                        color = MaterialTheme.colorScheme.primaryContainer
                     )
                     MetricBar(
                         label = "Memory",
                         value = "${stats.memUsedMb} / ${stats.memTotalMb} MB",
                         progress = stats.memProgress,
-                        color = StitchPrimaryContainer
+                        color = MaterialTheme.colorScheme.primaryContainer
                     )
                     MetricBar(
                         label = "Disk ${stats.diskPath}",
                         value = "${String.format("%.1f", stats.diskUsedGb)} / ${String.format("%.1f", stats.diskTotalGb)} GB",
                         progress = stats.diskProgress,
-                        color = StitchTertiaryContainer
+                        color = MaterialTheme.colorScheme.tertiaryContainer
                     )
 
                     Spacer(Modifier.height(8.dp))
-                    HorizontalDividerStitch(color = StitchOutlineVariant)
+                    HorizontalDividerStitch(color = MaterialTheme.colorScheme.outlineVariant)
 
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         StatText("Load avg (1/5/15)", "${String.format("%.2f", stats.loadAvg1)} / ${String.format("%.2f", stats.loadAvg5)} / ${String.format("%.2f", stats.loadAvg15)}")
@@ -466,11 +475,11 @@ fun SystemStatsPanel(
                     }
 
                     Spacer(Modifier.height(8.dp))
-                    HorizontalDividerStitch(color = StitchOutlineVariant)
+                    HorizontalDividerStitch(color = MaterialTheme.colorScheme.outlineVariant)
 
                     Text(
                         text = "Connection Logs",
-                        color = StitchOutline,
+                        color = MaterialTheme.colorScheme.outline,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -489,7 +498,7 @@ fun SystemStatsPanel(
             ) {
                 Text(
                     text = "No active connection",
-                    color = StitchOnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace
                 )
@@ -504,8 +513,8 @@ private fun StatText(label: String, value: String) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = StitchOnSurfaceVariant, fontSize = 11.sp)
-        Text(value, color = StitchOnSurface, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+        Text(value, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
     }
 }
 
@@ -524,13 +533,13 @@ private fun MetricBar(
         ) {
             Text(
                 text = label,
-                color = StitchOnSurface,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = value,
-                color = StitchPrimaryFixedDim,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace
             )
@@ -540,7 +549,7 @@ private fun MetricBar(
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp))
-                .background(StitchSurfaceContainerHighest)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
         ) {
             Box(
                 modifier = Modifier
@@ -570,13 +579,13 @@ private fun LogEntry(time: String, event: String) {
     ) {
         Text(
             text = time,
-            color = StitchOutline,
+            color = MaterialTheme.colorScheme.outline,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )
         Text(
             text = event,
-            color = StitchOnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )
@@ -601,8 +610,8 @@ private fun CommandPalette(
                 .widthIn(max = 400.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .background(StitchSurfaceContainerHigh)
-                .border(1.dp, StitchOutline, RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                 .clickable(enabled = false, onClick = {})
         ) {
             Row(
@@ -615,17 +624,17 @@ private fun CommandPalette(
                 Icon(
                     Icons.Default.Terminal,
                     contentDescription = null,
-                    tint = StitchPrimaryFixedDim,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
                     text = "Type a command or search...",
-                    color = StitchOnSurfaceVariant.copy(alpha = 0.5f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     fontSize = 14.sp
                 )
             }
 
-            HorizontalDividerStitch(color = StitchOutlineVariant)
+            HorizontalDividerStitch(color = MaterialTheme.colorScheme.outlineVariant)
 
             Column(
                 modifier = Modifier.padding(8.dp),
@@ -633,7 +642,7 @@ private fun CommandPalette(
             ) {
                 Text(
                     text = "Quick Actions",
-                    color = StitchOutline,
+                    color = MaterialTheme.colorScheme.outline,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
@@ -670,12 +679,12 @@ private fun CommandItem(
     ) {
         Text(
             text = label,
-            color = StitchOnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp
         )
         Text(
             text = shortcut,
-            color = StitchOutline,
+            color = MaterialTheme.colorScheme.outline,
             fontSize = 10.sp
         )
     }
@@ -695,7 +704,7 @@ private fun SpecialKeysBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(StitchSurfaceContainerLow)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -716,14 +725,14 @@ private fun SpecialKeyButton(label: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
-            .background(StitchSurfaceContainerHighest)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            color = StitchOnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium,
             fontFamily = FontFamily.Monospace
@@ -781,14 +790,14 @@ private fun ThemeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier
             .size(28.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(StitchSurfaceContainerHighest.copy(alpha = 0.8f))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             Icons.Default.Settings,
             contentDescription = "Themes",
-            tint = StitchOnSurfaceVariant,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(14.dp)
         )
     }
@@ -796,38 +805,49 @@ private fun ThemeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 @Composable
 private fun ThemePickerDialog(
-    currentTheme: String?,
-    onSelect: (String) -> Unit,
+    currentMode: ColorMode,
+    onSelect: (ColorMode) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Terminal Theme", color = StitchOnSurface) },
+        title = { Text("Terminal Theme", color = MaterialTheme.colorScheme.onSurface) },
         text = {
             Column {
-                themes.forEach { theme ->
+                terminalThemes.forEach { theme ->
+                    val selected = theme.mode == currentMode
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onSelect(theme.id) }
-                            .padding(vertical = 8.dp),
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f)
+                                else MaterialTheme.colorScheme.surface
+                            )
+                            .clickable { onSelect(theme.mode) }
+                            .padding(vertical = 8.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .border(1.dp, StitchOutlineVariant, RoundedCornerShape(4.dp))
-                                .background(theme.color)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+                                .background(theme.preview)
                         )
                         Spacer(Modifier.width(12.dp))
-                        Text(text = theme.label, color = StitchOnSurface, fontSize = 14.sp)
+                        Text(
+                            text = theme.label,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 14.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                        )
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = StitchPrimaryContainer) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.primaryContainer) }
         }
     )
 }
@@ -837,12 +857,12 @@ private fun ConnectingOverlay(state: SessionState) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(StitchBackground.copy(alpha = 0.85f)),
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f)),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(
-                color = StitchPrimaryContainer,
+                color = MaterialTheme.colorScheme.primaryContainer,
                 strokeWidth = 2.dp
             )
             Spacer(Modifier.height(12.dp))
@@ -852,7 +872,7 @@ private fun ConnectingOverlay(state: SessionState) {
                     SessionState.AUTHENTICATING -> "Authenticating..."
                     else -> "Starting..."
                 },
-                color = StitchPrimaryFixedDim,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 14.sp,
                 fontFamily = FontFamily.Monospace
             )
@@ -865,7 +885,7 @@ private fun ErrorOverlay(error: ConnectionError?, context: Context) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(StitchBackground.copy(alpha = 0.85f)),
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -877,13 +897,13 @@ private fun ErrorOverlay(error: ConnectionError?, context: Context) {
             Icon(
                 Icons.Default.Warning,
                 contentDescription = null,
-                tint = StitchError,
+                tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(40.dp)
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "Connection Error",
-                color = StitchError,
+                color = MaterialTheme.colorScheme.error,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -894,13 +914,13 @@ private fun ErrorOverlay(error: ConnectionError?, context: Context) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .background(StitchSurfaceContainer)
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
                         .padding(12.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
                     Text(
                         text = error.message,
-                        color = StitchOnSurface,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace
                     )
@@ -908,7 +928,7 @@ private fun ErrorOverlay(error: ConnectionError?, context: Context) {
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = error.exceptionText,
-                            color = StitchOnSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 10.sp,
                             fontFamily = FontFamily.Monospace
                         )
@@ -924,8 +944,8 @@ private fun ErrorOverlay(error: ConnectionError?, context: Context) {
                         clipboard.setPrimaryClip(clip)
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = StitchSurfaceContainerHigh,
-                        contentColor = StitchOnSurface
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurface
                     ),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
@@ -937,7 +957,7 @@ private fun ErrorOverlay(error: ConnectionError?, context: Context) {
             } else {
                 Text(
                     text = "Unknown error (no details)",
-                    color = StitchOnSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             }
@@ -950,12 +970,12 @@ private fun ClosedOverlay() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(StitchBackground.copy(alpha = 0.85f)),
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.85f)),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "Disconnected",
-            color = StitchOnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             fontFamily = FontFamily.Monospace
         )

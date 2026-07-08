@@ -83,21 +83,6 @@ import com.bastion.app.terminal.SystemStatsPanel
 import com.bastion.app.terminal.TerminalTab
 import com.bastion.app.terminal.cleanupTerminalSession
 import com.bastion.app.ui.theme.ColorMode
-import com.bastion.app.ui.theme.StitchBackground
-import com.bastion.app.ui.theme.StitchOnPrimaryFixed
-import com.bastion.app.ui.theme.StitchOnSurface
-import com.bastion.app.ui.theme.StitchOnSurfaceVariant
-import com.bastion.app.ui.theme.StitchOutline
-import com.bastion.app.ui.theme.StitchOutlineVariant
-import com.bastion.app.ui.theme.StitchPrimaryContainer
-import com.bastion.app.ui.theme.StitchPrimaryFixedDim
-import com.bastion.app.ui.theme.StitchSecondary
-import com.bastion.app.ui.theme.StitchSecondaryContainer
-import com.bastion.app.ui.theme.StitchSurfaceContainer
-import com.bastion.app.ui.theme.StitchSurfaceContainerHigh
-import com.bastion.app.ui.theme.StitchSurfaceContainerHighest
-import com.bastion.app.ui.theme.StitchSurfaceContainerLow
-import com.bastion.app.ui.theme.StitchSurfaceContainerLowest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -118,7 +103,8 @@ private data class TerminalSession(
     val hostname: String = "",
     val port: Int = 22,
     val username: String = "",
-    val authTypeLabel: String = ""
+    val authTypeLabel: String = "",
+    val theme: String = ColorMode.DARK.name
 )
 
 @Composable
@@ -163,7 +149,8 @@ fun AppLayout(
                     com.bastion.app.data.AuthType.PASSWORD -> "Password"
                     com.bastion.app.data.AuthType.PUBLIC_KEY -> "Public Key"
                     com.bastion.app.data.AuthType.AGENT_FORWARD -> "Agent"
-                }
+                },
+                theme = colorMode.name
             )
         )
         selectedSection = NavSection.SESSIONS
@@ -185,6 +172,13 @@ fun AppLayout(
         terminalSessions.removeAt(index)
     }
 
+    fun updateTerminalTheme(id: Int, mode: ColorMode) {
+        val idx = terminalSessions.indexOfFirst { it.id == id }
+        if (idx < 0) return
+        val ts = terminalSessions[idx]
+        terminalSessions[idx] = ts.copy(theme = mode.name)
+    }
+
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     var showStats by remember { mutableStateOf(false) }
@@ -193,7 +187,7 @@ fun AppLayout(
         s == com.bastion.app.ssh.SessionState.SHELL_ACTIVE
     }
 
-    Column(modifier = modifier.fillMaxSize().background(StitchBackground)) {
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Sidebar(
                 selectedSection = selectedSection,
@@ -242,6 +236,7 @@ fun AppLayout(
                                             showStats = showStats,
                                             onToggleStats = { showStats = !showStats },
                                             fontSize = fontSize,
+                                            onThemeChange = { id, mode -> updateTerminalTheme(id, mode) },
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
@@ -253,6 +248,7 @@ fun AppLayout(
                                                 s.session.state.value == com.bastion.app.ssh.SessionState.SHELL_ACTIVE
                                             } ?: false,
                                             session = currentSession?.session,
+                                            authConfig = currentSession?.session?.config?.value,
                                             onClose = { showStats = false }
                                         )
                                     }
@@ -312,7 +308,7 @@ private fun Sidebar(
         modifier = Modifier
             .width(sidebarWidth)
             .fillMaxHeight()
-            .background(StitchSurfaceContainer)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(
             modifier = Modifier
@@ -328,12 +324,12 @@ private fun Sidebar(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(StitchSurfaceContainerHighest),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "B",
-                        color = StitchPrimaryFixedDim,
+                        color = MaterialTheme.colorScheme.primary,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -342,14 +338,14 @@ private fun Sidebar(
                     Column {
                         Text(
                             text = "Bastion",
-                            color = StitchPrimaryFixedDim,
+                            color = MaterialTheme.colorScheme.primary,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.5).sp
                         )
                         Text(
                             text = "Infrastructure Management",
-                            color = StitchOnSurfaceVariant.copy(alpha = 0.6f),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
@@ -365,7 +361,7 @@ private fun Sidebar(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(StitchPrimaryContainer)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
                     .clickable(onClick = onNewInstance)
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
@@ -377,12 +373,12 @@ private fun Sidebar(
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = null,
-                        tint = StitchOnPrimaryFixed,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
                         text = "New Connection",
-                        color = StitchOnPrimaryFixed,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -395,14 +391,14 @@ private fun Sidebar(
                     .padding(horizontal = 8.dp)
                     .size(36.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(StitchPrimaryContainer)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
                     .clickable(onClick = onNewInstance),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "New Connection",
-                    tint = StitchOnPrimaryFixed,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -449,7 +445,7 @@ private fun Sidebar(
 
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                color = StitchOutlineVariant
+                color = MaterialTheme.colorScheme.outlineVariant
             )
 
             Row(
@@ -463,20 +459,20 @@ private fun Sidebar(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(StitchSurfaceContainerHigh),
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
-                        tint = StitchOnSurfaceVariant.copy(alpha = 0.4f),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                         modifier = Modifier.size(20.dp)
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Not signed in",
-                        color = StitchOnSurfaceVariant.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         fontSize = 12.sp,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                         maxLines = 1,
@@ -484,7 +480,7 @@ private fun Sidebar(
                     )
                     Text(
                         text = "Sign in to manage profile",
-                        color = StitchOnSurfaceVariant.copy(alpha = 0.3f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                         fontSize = 10.sp,
                         letterSpacing = 0.5.sp,
                         maxLines = 1,
@@ -504,8 +500,8 @@ private fun SidebarNavItem(
     collapsed: Boolean = false,
     onClick: () -> Unit
 ) {
-    val bgColor = if (isSelected) StitchSurfaceContainerHigh else Color.Transparent
-    val contentColor = if (isSelected) StitchPrimaryFixedDim else StitchOnSurfaceVariant
+    val bgColor = if (isSelected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(
         modifier = Modifier
@@ -531,7 +527,7 @@ private fun SidebarNavItem(
                         modifier = Modifier
                             .width(2.dp)
                             .height(20.dp)
-                            .background(StitchSecondaryContainer, RoundedCornerShape(1.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(1.dp))
                     )
                 } else {
                     Spacer(Modifier.width(2.dp))
@@ -574,12 +570,12 @@ private fun SidebarLinkItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = StitchOnSurfaceVariant,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp)
         )
         Text(
             text = label,
-            color = StitchOnSurfaceVariant,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 13.sp
         )
     }
@@ -599,7 +595,7 @@ private fun AppHeader(
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
-            .background(StitchSurfaceContainer)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -618,8 +614,8 @@ private fun AppHeader(
                         .width(200.dp)
                         .height(32.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(StitchSurfaceContainerLow)
-                        .border(1.dp, StitchOutlineVariant, RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
                         .padding(horizontal = 8.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -630,23 +626,23 @@ private fun AppHeader(
                         Icon(
                             Icons.Default.Search,
                             contentDescription = null,
-                            tint = StitchOnSurfaceVariant,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(16.dp)
                         )
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = onSearchChange,
                             singleLine = true,
-                            cursorBrush = SolidColor(StitchPrimaryContainer),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primaryContainer),
                             textStyle = TextStyle(
-                                color = StitchOnSurface,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontSize = 13.sp
                             ),
                             decorationBox = { innerTextField ->
                                 if (searchQuery.isEmpty()) {
                                     Text(
                                         "Global search...",
-                                        color = StitchOnSurfaceVariant.copy(alpha = 0.5f),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                         fontSize = 13.sp
                                     )
                                 }
@@ -668,7 +664,7 @@ private fun AppHeader(
                     Icon(
                         Icons.Default.Notifications,
                         contentDescription = "Notifications",
-                        tint = StitchOnSurfaceVariant,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -676,14 +672,14 @@ private fun AppHeader(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(StitchSecondaryContainer.copy(alpha = 0.2f))
-                        .border(1.dp, StitchSecondaryContainer, RoundedCornerShape(4.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
+                        .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
                         .clickable(onClick = onConnect)
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = "Connect",
-                        color = StitchSecondary,
+                        color = MaterialTheme.colorScheme.secondary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -702,7 +698,7 @@ private fun SessionFooter(
         modifier = Modifier
             .fillMaxWidth()
             .height(32.dp)
-            .background(StitchSurfaceContainerLowest)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -713,18 +709,18 @@ private fun SessionFooter(
         ) {
             Text(
                 text = "Bastion SSH",
-                color = StitchPrimaryFixedDim,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 11.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
             )
             Text(
                 text = "|",
-                color = StitchOutlineVariant,
+                color = MaterialTheme.colorScheme.outlineVariant,
                 fontSize = 11.sp
             )
             Text(
                 text = sessionTitle,
-                color = StitchOnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 maxLines = 1,
@@ -744,18 +740,18 @@ private fun SessionFooter(
                     modifier = Modifier
                         .size(6.dp)
                         .clip(CircleShape)
-                        .background(if (isConnected) StitchPrimaryContainer else StitchOutline)
+                        .background(if (isConnected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.outline)
                 )
                 Text(
                     text = if (isConnected) "Connected" else "Disconnected",
-                    color = if (isConnected) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
+                    color = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 10.sp,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )
             }
             Text(
                 text = "UTF-8",
-                color = StitchOnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
             )
@@ -772,6 +768,7 @@ private fun TerminalPagerContent(
     showStats: Boolean,
     onToggleStats: () -> Unit,
     fontSize: Int = 14,
+    onThemeChange: (Int, ColorMode) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -791,7 +788,7 @@ private fun TerminalPagerContent(
             userScrollEnabled = true
         ) { page ->
             val ts = sessions[page]
-            TerminalTab(
+                TerminalTab(
                 session = ts.session,
                 webViewCache = webViewCache,
                 hostname = ts.hostname,
@@ -802,6 +799,8 @@ private fun TerminalPagerContent(
                 showStats = showStats,
                 onToggleStats = onToggleStats,
                 fontSize = fontSize,
+                terminalColorMode = ColorMode.valueOf(ts.theme),
+                onThemeChange = { onThemeChange(ts.id, it) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -820,7 +819,7 @@ private fun SessionTabBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(StitchSurfaceContainerLowest)
+            .background(MaterialTheme.colorScheme.surfaceContainerLowest)
             .padding(start = 0.dp, end = 4.dp, top = 0.dp, bottom = 0.dp),
         verticalAlignment = Alignment.Bottom
     ) {
@@ -842,7 +841,7 @@ private fun SessionTabBar(
                     Row(
                         modifier = Modifier
                             .background(
-                                if (isActive) StitchSurfaceContainerHigh else Color.Transparent
+                                if (isActive) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent
                             )
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -851,12 +850,12 @@ private fun SessionTabBar(
                         Icon(
                             Icons.Default.Devices,
                             contentDescription = null,
-                            tint = if (isActive) StitchPrimaryFixedDim else StitchOnSurfaceVariant.copy(alpha = 0.6f),
+                            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
                             text = session.title,
-                            color = if (isActive) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
+                            color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -869,7 +868,7 @@ private fun SessionTabBar(
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = "Close",
-                                tint = StitchOnSurfaceVariant.copy(alpha = 0.6f),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 modifier = Modifier.size(10.dp)
                             )
                         }
@@ -879,7 +878,7 @@ private fun SessionTabBar(
                             .fillMaxWidth()
                             .height(2.dp)
                             .background(
-                                if (isActive) StitchPrimaryContainer else Color.Transparent
+                                if (isActive) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
                             )
                     )
                 }
@@ -892,14 +891,14 @@ private fun SessionTabBar(
                 .size(28.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .background(
-                    if (showStats) StitchSurfaceContainerHigh else Color.Transparent
+                    if (showStats) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent
                 )
                 .clickable(onClick = onToggleStats),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "S",
-                color = if (showStats) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
+                color = if (showStats) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
@@ -918,26 +917,26 @@ private fun EmptyTerminalPlaceholder(onBrowseServers: () -> Unit) {
             Icon(
                 Icons.Default.Devices,
                 contentDescription = null,
-                tint = StitchOutline,
+                tint = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.size(64.dp)
             )
             Spacer(Modifier.height(16.dp))
             Text(
                 "No active sessions",
-                color = StitchOnSurfaceVariant,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 16.sp
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Connect to a server to start a terminal session",
-                color = StitchOnSurfaceVariant.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 fontSize = 14.sp
             )
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = onBrowseServers) {
                 Text(
                     "Browse servers",
-                    color = StitchPrimaryContainer,
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     fontSize = 14.sp
                 )
             }

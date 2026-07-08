@@ -1,5 +1,6 @@
 package com.bastion.app.terminal
 
+import com.bastion.app.ssh.AuthConfig
 import com.bastion.app.ssh.SshSession
 import com.bastion.app.ssh.SessionState
 import kotlinx.coroutines.CoroutineScope
@@ -40,12 +41,12 @@ data class StatsLogEntry(
 )
 
 class StatsCollector(
-    private val session: SshSession,
+    private val authConfig: AuthConfig,
     private val intervalMs: Long = 5000L
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var collectJob: Job? = null
-    private var parseJob: Job? = null
+    private var statsSession: SshSession? = null
 
     private val STATS_BEGIN = "__BASTION_STATS_BEGIN__"
     private val STATS_END = "__BASTION_STATS_END__"
@@ -65,21 +66,36 @@ class StatsCollector(
     fun start() {
         if (collectJob != null) return
         _isCollecting.value = true
-        addLog("Stats collector started")
-
-        parseJob = scope.launch {
-            session.output.collect { bytes ->
-                val text = String(bytes, StandardCharsets.UTF_8)
-                processOutput(text)
-            }
-        }
+        addLog("Stats collector started (hidden session)")
 
         collectJob = scope.launch {
-            while (isActive) {
-                if (session.state.value == SessionState.SHELL_ACTIVE) {
-                    sendStatsCommand()
+            val session = SshSession()
+            val connectResult = session.connect(authConfig)
+            if (!connectResult.isSuccess) {
+                addLog("Hidden session connect failed: ${connectResult.exceptionOrNull()?.message}")
+                _isCollecting.value = false
+                return@launch
+            }
+            session.openShell()
+            statsSession = session
+            addLog("Hidden session connected")
+
+            val parseJob = launch {
+                session.output.collect { bytes ->
+                    val text = String(bytes, StandardCharsets.UTF_8)
+                    processOutput(text)
                 }
-                delay(intervalMs)
+            }
+
+            try {
+                while (isActive) {
+                    if (session.state.value == SessionState.SHELL_ACTIVE) {
+                        sendStatsCommand(session)
+                    }
+                    delay(intervalMs)
+                }
+            } finally {
+                parseJob.cancel()
             }
         }
     }
@@ -87,15 +103,18 @@ class StatsCollector(
     fun stop() {
         collectJob?.cancel()
         collectJob = null
-        parseJob?.cancel()
-        parseJob = null
+        val s = statsSession
+        statsSession = null
+        scope.launch {
+            try { s?.close() } catch (_: Exception) { }
+        }
         outputBuffer.clear()
         capturing = false
         _isCollecting.value = false
         addLog("Stats collector stopped")
     }
 
-    private fun sendStatsCommand() {
+    private fun sendStatsCommand(session: SshSession) {
         val cmd = "echo $STATS_BEGIN; " +
             "cat /proc/stat | head -1; " +
             "grep 'cpu' /proc/stat | wc -l; " +

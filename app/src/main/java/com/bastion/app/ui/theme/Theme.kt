@@ -133,6 +133,7 @@ private val OledDarkColorScheme = darkColorScheme(
 @Composable
 fun BastionTheme(
     colorMode: ColorMode = ColorMode.DARK,
+    applyStatusBar: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val resolvedDark = when (colorMode) {
@@ -149,7 +150,7 @@ fun BastionTheme(
         ColorMode.SYSTEM -> if (isSystemInDarkTheme()) NeutralDarkColorScheme else StitchLightColorScheme
     }
     val view = LocalView.current
-    if (!view.isInEditMode) {
+    if (!view.isInEditMode && applyStatusBar) {
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.background.toArgb()
