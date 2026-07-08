@@ -228,10 +228,21 @@ class SshSession(
     }
 
     fun resize(newCols: Int, newRows: Int) {
+        // HIM-017: setPtyColumns/setPtyLines son setters de configuración PRE-apertura del
+        // canal — con el canal ya abierto no notifican nada al servidor remoto. El servidor
+        // seguía creyendo que el terminal medía 80x24 (el default de apertura) para siempre,
+        // por eso el shell remoto no usaba el ancho real disponible (ls/prompt/etc. formateaban
+        // a 80 columnas). sendWindowChange() sí envía el mensaje SSH de cambio de ventana
+        // (RFC 4254 §6.7) al canal ya abierto.
+        val ch = channel ?: return
         try {
-            channel?.setPtyColumns(newCols)
-            channel?.setPtyLines(newRows)
-        } catch (_: Exception) { }
+            ch.setPtyColumns(newCols)
+            ch.setPtyLines(newRows)
+            ch.sendWindowChange(newCols, newRows)
+            log.i("window change sent: ${newCols}x${newRows}")
+        } catch (e: Exception) {
+            log.w("sendWindowChange failed: ${e.message}")
+        }
     }
 
     suspend fun close() = withContext(Dispatchers.IO) {
