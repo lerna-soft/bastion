@@ -86,10 +86,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// HIM-015: "notifications", "security" y "api-keys" ocultos — se persisten en AppSettings/DB
+// pero ninguna lógica de la app los aplica todavía (sin envío real de webhook/email, sin 2FA/
+// timeout de sesión aplicado, sin API propia que las keys puedan autenticar). Ocultos hasta que
+// se implementen de verdad, para no dar una falsa sensación de que están activos.
 private val settingsSections = listOf(
-    "general" to "General", "notifications" to "Notifications",
-    "appearance" to "Appearance", "security" to "Security",
-    "api-keys" to "API Keys", "about" to "About"
+    "general" to "General",
+    "appearance" to "Appearance",
+    "about" to "About"
 )
 
 @Composable

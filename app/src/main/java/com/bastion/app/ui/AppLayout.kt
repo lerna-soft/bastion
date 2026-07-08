@@ -39,11 +39,11 @@ import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
@@ -902,6 +902,9 @@ private fun AppHeader(
                     }
                 }
 
+                // HIM-015: antes era un ícono de "Notifications" (campana) que en realidad abría
+                // el repo de GitHub — mal etiquetado (no hay sistema de notificaciones). El botón
+                // sí funciona, solo estaba mal identificado; se corrige el ícono/label.
                 IconButton(
                     onClick = {
                         context.startActivity(
@@ -911,24 +914,33 @@ private fun AppHeader(
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
-                        Icons.Default.Notifications,
-                        contentDescription = "Notifications",
+                        Icons.Default.Code,
+                        contentDescription = "Repositorio en GitHub",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                 }
 
+                // HIM-015: antes era un no-op silencioso cuando no había sesiones abiertas
+                // (terminalSessionsCount se recibía pero nunca se usaba). Ahora se ve deshabilitado.
+                val hasSessions = terminalSessionsCount > 0
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f))
-                        .border(1.dp, MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
-                        .clickable(onClick = onConnect)
+                        .background(
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (hasSessions) 0.2f else 0.05f)
+                        )
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (hasSessions) 1f else 0.3f),
+                            RoundedCornerShape(4.dp)
+                        )
+                        .clickable(enabled = hasSessions, onClick = onConnect)
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = "Connect",
-                        color = MaterialTheme.colorScheme.secondary,
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = if (hasSessions) 1f else 0.4f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
