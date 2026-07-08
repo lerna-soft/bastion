@@ -22,6 +22,7 @@ object Routes {
 @Composable
 fun BastionNavGraph(
     navController: NavHostController,
+    app: com.bastion.app.BastionApp,
     repository: VaultRepository,
     colorMode: ColorMode = ColorMode.DARK,
     onColorModeChange: (ColorMode) -> Unit = {},
@@ -34,6 +35,7 @@ fun BastionNavGraph(
     ) {
         composable(Routes.MAIN) {
             AppLayout(
+                app = app,
                 repository = repository,
                 colorMode = colorMode,
                 onColorModeChange = onColorModeChange,

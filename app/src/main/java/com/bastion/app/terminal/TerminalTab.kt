@@ -115,6 +115,13 @@ private fun jsThemeFor(mode: ColorMode): String = when (mode) {
 
 private val terminalScopes = mutableMapOf<SshSession, CoroutineScope>()
 
+// HIM-013: cuando terminalSessions/webViewCache sobreviven la navegación (viven en BastionApp),
+// TerminalTab se recompone desde cero al volver a la pantalla. Sin este guard, el
+// DisposableEffect de abajo lanzaría un SEGUNDO par de loops input/output sobre el mismo scope
+// reusado — duplicando el consumo de session.output y el reenvío de tecleo.
+private val startedIoLoops: MutableSet<SshSession> =
+    java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun TerminalTab(
@@ -167,7 +174,7 @@ fun TerminalTab(
 
     DisposableEffect(session) {
         val br = bridge.value
-        if (br != null && webViewCache.containsKey(session)) {
+        if (br != null && webViewCache.containsKey(session) && startedIoLoops.add(session)) {
             scope.launch {
                 try {
                     for (data in br.onData) {
@@ -293,6 +300,7 @@ fun TerminalTab(
 
 fun cleanupTerminalSession(session: SshSession) {
     terminalScopes.remove(session)?.cancel("session closed")
+    startedIoLoops.remove(session)
 }
 
 @Composable

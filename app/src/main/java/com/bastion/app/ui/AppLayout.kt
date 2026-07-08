@@ -86,6 +86,7 @@ import com.bastion.app.ssh.AuthConfig
 import com.bastion.app.ssh.SshSession
 import com.bastion.app.ssh.loadKeyPairFromPem
 import com.bastion.app.terminal.SystemStatsPanel
+import com.bastion.app.terminal.TerminalSession
 import com.bastion.app.terminal.TerminalTab
 import com.bastion.app.terminal.cleanupTerminalSession
 import com.bastion.app.ui.theme.ColorMode
@@ -102,20 +103,9 @@ enum class NavSection(val label: String, val icon: ImageVector) {
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
-private data class TerminalSession(
-    val id: Int,
-    val title: String,
-    val session: SshSession,
-    val hostId: Long,
-    val hostname: String = "",
-    val port: Int = 22,
-    val username: String = "",
-    val authTypeLabel: String = "",
-    val theme: String = ColorMode.DARK.name
-)
-
 @Composable
 fun AppLayout(
+    app: com.bastion.app.BastionApp,
     repository: VaultRepository,
     colorMode: ColorMode = ColorMode.DARK,
     onColorModeChange: (ColorMode) -> Unit = {},
@@ -125,10 +115,10 @@ fun AppLayout(
     modifier: Modifier = Modifier
 ) {
     var selectedSection by remember { mutableStateOf(NavSection.SERVERS) }
-    val terminalSessions = remember { mutableStateListOf<TerminalSession>() }
-    var nextSessionId by remember { mutableStateOf(1) }
+    // HIM-013: hoisted a BastionApp — sobreviven a la navegación interna (Agregar/Editar servidor).
+    val terminalSessions = app.terminalSessions
     val pagerState = rememberPagerState(pageCount = { terminalSessions.size })
-    val webViewCache = remember { mutableMapOf<SshSession, WebView>() }
+    val webViewCache = app.terminalWebViewCache
     val scope = rememberCoroutineScope()
     var fontSize by remember { mutableStateOf(14) }
 
@@ -138,7 +128,7 @@ fun AppLayout(
     }
 
     fun openTerminalSession(hostWithSecret: HostWithSecret) {
-        val tabId = nextSessionId++
+        val tabId = app.nextTerminalId()
         val hostInfo = hostWithSecret.host
         val displayName = hostInfo.name
         RemoteLogger.i("AppLayout", "open terminal #$tabId $displayName")

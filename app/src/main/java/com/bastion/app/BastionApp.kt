@@ -2,10 +2,15 @@ package com.bastion.app
 
 import android.app.Application
 import android.os.Process
+import android.webkit.WebView
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.bastion.app.data.AppDatabase
 import com.bastion.app.data.VaultRepository
 import com.bastion.app.data.crypto.SecretsStore
 import com.bastion.app.logging.RemoteLogger
+import com.bastion.app.ssh.SshSession
+import com.bastion.app.terminal.TerminalSession
 import com.bastion.app.update.UpdateChecker
 import com.bastion.app.update.UpdateInfo
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -39,6 +44,15 @@ class BastionApp : Application() {
 
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+
+    // HIM-013: pestañas de terminal hoisted a nivel Application. Antes vivían en un remember{}
+    // de AppLayout (ruta MAIN del NavHost) y se perdían al navegar a Agregar/Editar servidor o
+    // Acerca de — Compose destruye ese remember al salir de la ruta. Aquí sobreviven mientras el
+    // proceso esté vivo (no sobreviven si Android mata el proceso — eso es un HIM aparte).
+    val terminalSessions: SnapshotStateList<TerminalSession> = mutableStateListOf()
+    val terminalWebViewCache: MutableMap<SshSession, WebView> = mutableMapOf()
+    private val nextTerminalIdCounter = java.util.concurrent.atomic.AtomicInteger(1)
+    fun nextTerminalId(): Int = nextTerminalIdCounter.getAndIncrement()
 
     // Any error escaping an update coroutine is captured here (never crashes the app) and surfaced
     // as an error state the UI can show. appScope is used only for update operations.

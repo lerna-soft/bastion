@@ -91,6 +91,7 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     BastionNavGraph(
                         navController = navController,
+                        app = app,
                         repository = app.repository,
                         colorMode = colorMode,
                         onColorModeChange = {
