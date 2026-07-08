@@ -28,7 +28,7 @@ docker run --rm \
     -v "$SDK_DIR:/opt/android-sdk" \
     bastion-builder
 
-APK_SRC="$PROJECT_DIR/platforms/android/build/outputs/apk/release/app-release.apk"
+APK_SRC="$PROJECT_DIR/platforms/android/build/outputs/apk/release/android-release.apk"
 if [ -f "$APK_SRC" ]; then
     # Extract version from build.gradle.kts
     VERSION=$(grep 'versionName' "$PROJECT_DIR/platforms/android/build.gradle.kts" | sed 's/.*"\(.*\)".*/\1/')

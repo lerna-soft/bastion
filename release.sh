@@ -67,7 +67,7 @@ docker run --rm \
     -v "$SDK_DIR:/opt/android-sdk" \
     bastion-builder 2>&1 | tail -5
 
-APK_SRC="$PROJECT_DIR/platforms/android/build/outputs/apk/release/app-release.apk"
+APK_SRC="$PROJECT_DIR/platforms/android/build/outputs/apk/release/android-release.apk"
 if [ ! -f "$APK_SRC" ]; then
     echo "❌ APK build failed — no APK generated"
     exit 1
