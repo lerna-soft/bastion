@@ -46,9 +46,29 @@ import com.bastion.app.ui.theme.StitchSurfaceContainerHighest
 class MainActivity : ComponentActivity() {
     private val log = RemoteLogger.logger("MainActivity")
 
+    private fun requestIgnoreBatteryOptimizations() {
+        try {
+            val pm = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                @android.annotation.SuppressLint("BatteryLife")
+                val intent = android.content.Intent(
+                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            }
+        } catch (e: Throwable) {
+            log.w("battery-opt request falló: ${e.message}")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         log.i("onCreate")
+
+        // En dispositivos agresivos (Samsung, etc.) el sistema mata la app en segundo plano y se
+        // pierden las sesiones SSH. Pedir exención de optimización de batería (una sola vez).
+        requestIgnoreBatteryOptimizations()
 
         val app = application as BastionApp
 

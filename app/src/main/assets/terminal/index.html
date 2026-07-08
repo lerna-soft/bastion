@@ -91,9 +91,18 @@
 
         term.open(document.getElementById('terminal'));
 
-        setTimeout(function() { fitAddon.fit(); }, 100);
+        function safeFit() { try { fitAddon.fit(); } catch (e) {} }
 
-        window.addEventListener('resize', function() { fitAddon.fit(); });
+        // Fits escalonados: el WebView puede no tener aún su tamaño real al cargar.
+        [50, 150, 300, 600, 1000].forEach(function(d) { setTimeout(safeFit, d); });
+
+        // ResizeObserver: recalcula al cambiar el tamaño real del contenedor (rotación, teclado,
+        // volver a la pestaña, etc.) — window.resize solo no basta dentro de un WebView de Android.
+        if (window.ResizeObserver) {
+            var ro = new ResizeObserver(function() { safeFit(); });
+            ro.observe(document.getElementById('terminal'));
+        }
+        window.addEventListener('resize', safeFit);
 
         term.onData(function(data) {
             try {

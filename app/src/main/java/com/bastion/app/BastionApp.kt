@@ -128,16 +128,25 @@ class BastionApp : Application() {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return
         try {
             val am = getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val exits = am.getHistoricalProcessExitReasons(packageName, 0, 3)
+            val exits = am.getHistoricalProcessExitReasons(packageName, 0, 10)
             if (exits.isEmpty()) return
-            val last = exits[0]
+            // Considerar SOLO el proceso principal. Los procesos aislados (renderer del WebView,
+            // p.ej. "com.bastion.app:sandboxed_process0") los mata Android con REASON_OTHER
+            // "isolated not needed" de forma normal — NO son crashes de la app (falso positivo).
+            val last = exits.firstOrNull { it.processName == packageName } ?: return
             val reason = exitReasonName(last.reason)
             val summary = "last exit: $reason (status=${last.status}, importance=${last.importance}) — ${last.description}"
             RemoteLogger.i("ExitInfo", summary)
 
-            val cleanExit = last.reason == android.app.ApplicationExitInfo.REASON_USER_REQUESTED ||
-                last.reason == android.app.ApplicationExitInfo.REASON_EXIT_SELF
-            if (!cleanExit) {
+            // Solo alarmar por cierres realmente problemáticos (crash/OOM/ANR), no por cierres
+            // normales del sistema (OTHER, USER_REQUESTED, PACKAGE actualizado, etc.).
+            val crashLike = last.reason == android.app.ApplicationExitInfo.REASON_CRASH ||
+                last.reason == android.app.ApplicationExitInfo.REASON_CRASH_NATIVE ||
+                last.reason == android.app.ApplicationExitInfo.REASON_ANR ||
+                last.reason == android.app.ApplicationExitInfo.REASON_LOW_MEMORY ||
+                last.reason == android.app.ApplicationExitInfo.REASON_SIGNALED ||
+                last.reason == android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE
+            if (crashLike) {
                 RemoteLogger.e("ExitInfo", "cierre anormal: $reason — ${last.description}")
                 try {
                     val sb = StringBuilder()
