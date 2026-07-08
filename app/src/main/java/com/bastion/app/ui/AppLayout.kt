@@ -78,6 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bastion.app.data.Host
 import com.bastion.app.data.HostWithSecret
+import com.bastion.app.util.safe
 import com.bastion.app.data.VaultRepository
 import com.bastion.app.logging.RemoteLogger
 import com.bastion.app.ssh.AuthConfig
@@ -96,6 +97,7 @@ enum class NavSection(val label: String, val icon: ImageVector) {
     SERVERS("Connections", Icons.Default.Dns),
     SSH_KEYS("SSH Keys", Icons.Default.VpnKey),
     SESSIONS("Terminal", Icons.Default.Devices),
+    LOGS("Logs", Icons.Default.Description),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
@@ -158,21 +160,17 @@ fun AppLayout(
             )
         )
         selectedSection = NavSection.SESSIONS
-        scope.launch {
-            pagerState.animateScrollToPage(terminalSessions.size - 1)
-        }
-        scope.launch {
-            startConnection(session, hostWithSecret)
-        }
+        scope.launch { safe("AppLayout") { pagerState.animateScrollToPage(terminalSessions.size - 1) } }
+        scope.launch { safe("AppLayout") { startConnection(session, hostWithSecret) } }
     }
 
     fun closeTerminalSession(index: Int) {
         if (index < 0 || index >= terminalSessions.size) return
         val ts = terminalSessions[index]
         RemoteLogger.i("AppLayout", "close terminal #${ts.id} ${ts.title}")
-        cleanupTerminalSession(ts.session)
-        webViewCache.remove(ts.session)?.destroy()
-        CoroutineScope(Dispatchers.IO).launch { ts.session.close() }
+        safe("AppLayout") { cleanupTerminalSession(ts.session) }
+        safe("AppLayout") { webViewCache.remove(ts.session)?.destroy() }
+        CoroutineScope(Dispatchers.IO).launch { safe("AppLayout") { ts.session.close() } }
         terminalSessions.removeAt(index)
     }
 
@@ -187,6 +185,7 @@ fun AppLayout(
     var searchQuery by remember { mutableStateOf("") }
     var showStats by remember { mutableStateOf(false) }
     var showHostPicker by remember { mutableStateOf(false) }
+    var showCrashNotice by remember { mutableStateOf(RemoteLogger.hasUnseenCrash()) }
     val allHosts by repository.getAllHosts().collectAsState(initial = emptyList())
     val anySessionActive = terminalSessions.any {
         val s = it.session.state.value
@@ -270,6 +269,9 @@ fun AppLayout(
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
+                        NavSection.LOGS -> {
+                            LogsScreen(modifier = Modifier.fillMaxSize())
+                        }
                         NavSection.SETTINGS -> {
                             SettingsContent(
                                 repository = repository,
@@ -291,6 +293,32 @@ fun AppLayout(
         }
     }
 
+    if (showCrashNotice) {
+        AlertDialog(
+            onDismissRequest = { RemoteLogger.markCrashSeen(); showCrashNotice = false },
+            title = { Text("La app se cerró la última vez") },
+            text = {
+                Text(
+                    "Se registró un cierre inesperado. Puedes ver el detalle (stack trace) en la sección Logs.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    RemoteLogger.markCrashSeen()
+                    showCrashNotice = false
+                    selectedSection = NavSection.LOGS
+                }) { Text("Ver detalles") }
+            },
+            dismissButton = {
+                TextButton(onClick = { RemoteLogger.markCrashSeen(); showCrashNotice = false }) {
+                    Text("Cerrar")
+                }
+            }
+        )
+    }
+
     if (showHostPicker) {
         NewTabHostPicker(
             hosts = allHosts,
@@ -298,7 +326,9 @@ fun AppLayout(
             onPick = { host ->
                 showHostPicker = false
                 scope.launch {
-                    repository.getHostWithSecret(host.id)?.let { openTerminalSession(it) }
+                    safe("AppLayout") {
+                        repository.getHostWithSecret(host.id)?.let { openTerminalSession(it) }
+                    }
                 }
             }
         )
@@ -361,6 +391,109 @@ private fun NewTabHostPicker(
             TextButton(onClick = onDismiss) { Text("Cerrar") }
         }
     )
+}
+
+@Composable
+private fun LogsScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    var refreshTick by remember { mutableStateOf(0) }
+    val crash = remember(refreshTick) { RemoteLogger.readCrashLog() }
+    val recent = remember(refreshTick) { RemoteLogger.recentLogs() }
+    val fmt = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US) }
+
+    fun fullText(): String {
+        val sb = StringBuilder()
+        if (crash != null) sb.append("=== LAST CRASH ===\n").append(crash).append("\n\n")
+        sb.append("=== RECENT (${recent.size}) ===\n")
+        recent.forEach { sb.append("${fmt.format(java.util.Date(it.timeMillis))} ${it.level}/${it.tag}: ${it.msg}\n") }
+        return sb.toString()
+    }
+
+    Column(modifier = modifier.padding(16.dp)) {
+        Text(
+            "Logs & Diagnóstico",
+            color = MaterialTheme.colorScheme.onSurface,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = { refreshTick++ }) { Text("Refrescar") }
+            TextButton(onClick = {
+                safe("LogsScreen") {
+                    val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                        as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("bastion-logs", fullText()))
+                }
+            }) { Text("Copiar") }
+            TextButton(onClick = {
+                safe("LogsScreen") {
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_TEXT, fullText())
+                    }
+                    context.startActivity(
+                        android.content.Intent.createChooser(send, "Compartir logs")
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }) { Text("Compartir") }
+            TextButton(onClick = { RemoteLogger.clearCrashLog(); refreshTick++ }) { Text("Borrar") }
+        }
+        Spacer(Modifier.height(8.dp))
+        Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            Text(
+                "Último crash",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(4.dp))
+            if (crash == null) {
+                Text(
+                    "Sin crashes registrados.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
+            } else {
+                Text(
+                    crash,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 11.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Actividad reciente (${recent.size})",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(4.dp))
+            if (recent.isEmpty()) {
+                Text(
+                    "Sin actividad registrada.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
+            } else {
+                recent.forEach { e ->
+                    val color = when (e.level) {
+                        "ERROR", "CRASH" -> MaterialTheme.colorScheme.error
+                        "WARN" -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Text(
+                        "${fmt.format(java.util.Date(e.timeMillis))} ${e.level}/${e.tag}: ${e.msg}",
+                        color = color,
+                        fontSize = 11.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

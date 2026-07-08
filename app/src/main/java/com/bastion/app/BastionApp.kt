@@ -8,6 +8,7 @@ import com.bastion.app.data.crypto.SecretsStore
 import com.bastion.app.logging.RemoteLogger
 import com.bastion.app.update.UpdateChecker
 import com.bastion.app.update.UpdateInfo
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -39,7 +40,13 @@ class BastionApp : Application() {
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
-    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // Any error escaping an update coroutine is captured here (never crashes the app) and surfaced
+    // as an error state the UI can show. appScope is used only for update operations.
+    private val appExceptionHandler = CoroutineExceptionHandler { _, e ->
+        RemoteLogger.e("BastionApp", "uncaught update-coroutine error: ${e.message}", e)
+        _updateState.value = UpdateState.Error(e.message ?: "error inesperado")
+    }
+    private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob() + appExceptionHandler)
 
     override fun onCreate() {
         super.onCreate()
@@ -86,9 +93,15 @@ class BastionApp : Application() {
                 }
             } catch (_: Exception) { }
 
-            oldHandler?.uncaughtException(thread, throwable)
-            Process.killProcess(Process.myPid())
-            System.exit(1)
+            // Requisito HIM-009: la app nunca debe cerrarse. Un error en un hilo de fondo se
+            // registra y se traga — la app sigue viva. Solo el hilo principal es irrecuperable:
+            // ahí sí persistimos y dejamos que el sistema termine el crash (se mostrará al reabrir).
+            val isMainThread = thread === android.os.Looper.getMainLooper().thread
+            if (isMainThread) {
+                oldHandler?.uncaughtException(thread, throwable)
+                Process.killProcess(Process.myPid())
+                System.exit(1)
+            }
         }
 
         checkForUpdate()

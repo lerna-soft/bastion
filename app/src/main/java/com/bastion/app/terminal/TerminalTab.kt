@@ -81,6 +81,7 @@ import com.bastion.app.ui.theme.NeutralDarkBackground
 import com.bastion.app.ui.theme.OledDarkBackground
 import com.bastion.app.ui.theme.StitchBackground
 import com.bastion.app.ui.theme.StitchLightBackground
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -154,7 +155,13 @@ fun TerminalTab(
 
     val scope = remember(session) {
         terminalScopes.getOrPut(session) {
-            CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            // Exception handler so a failure in the I/O loops never crashes the app (HIM-009).
+            CoroutineScope(
+                SupervisorJob() + Dispatchers.IO +
+                    CoroutineExceptionHandler { _, e ->
+                        RemoteLogger.e("TerminalTab", "session-coroutine error: ${e.message}", e)
+                    }
+            )
         }
     }
 

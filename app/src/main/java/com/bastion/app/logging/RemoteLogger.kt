@@ -28,6 +28,10 @@ object RemoteLogger {
     private var _sessionId: String? = null
     private var _hostLabel: String? = null
 
+    // In-memory ring buffer of recent entries, shown by the in-app Logs screen (HIM-009).
+    private const val RECENT_MAX = 200
+    private val recentBuffer = LogRingBuffer(RECENT_MAX)
+
     data class LogEntry(
         val level: String,
         val tag: String,
@@ -36,6 +40,51 @@ object RemoteLogger {
         val sessionId: String? = null,
         val host: String? = null
     )
+
+    data class RecentEntry(
+        val timeMillis: Long,
+        val level: String,
+        val tag: String,
+        val msg: String
+    )
+
+    /** Most-recent-first snapshot of the in-memory log ring buffer. */
+    fun recentLogs(): List<RecentEntry> = recentBuffer.snapshotNewestFirst()
+
+    private fun addRecent(level: String, tag: String, msg: String) {
+        recentBuffer.add(RecentEntry(System.currentTimeMillis(), level, tag, msg))
+    }
+
+    // --- Crash log access for the in-app Logs screen ---
+
+    private fun crashFile(): File? = dataDir?.let { File(it, "bastion_crash.log") }
+    private fun crashSeenFile(): File? = dataDir?.let { File(it, "bastion_crash.seen") }
+
+    /** Full text of the last persisted crash, or null if there is none. */
+    fun readCrashLog(): String? {
+        val f = crashFile() ?: return null
+        return try { if (f.exists() && f.length() > 0) f.readText(Charsets.UTF_8) else null }
+        catch (_: Exception) { null }
+    }
+
+    fun clearCrashLog() {
+        try { crashFile()?.delete(); crashSeenFile()?.delete() } catch (_: Exception) { }
+        recentBuffer.clear()
+    }
+
+    /** True when a crash log exists that the user has not acknowledged yet. */
+    fun hasUnseenCrash(): Boolean {
+        val f = crashFile() ?: return false
+        if (!f.exists() || f.length() == 0L) return false
+        val seen = crashSeenFile() ?: return true
+        return try { !seen.exists() || seen.readText().trim() != f.lastModified().toString() }
+        catch (_: Exception) { true }
+    }
+
+    fun markCrashSeen() {
+        val f = crashFile() ?: return
+        try { if (f.exists()) crashSeenFile()?.writeText(f.lastModified().toString()) } catch (_: Exception) { }
+    }
 
     fun init(url: String = serverUrl, filesDir: File? = null) {
         serverUrl = url
@@ -163,16 +212,19 @@ object RemoteLogger {
 
     fun i(tag: String, msg: String) {
         Log.i(tag, msg)
+        addRecent("INFO", tag, msg)
         enqueue(LogEntry("INFO", tag, msg, sessionId = _sessionId, host = _hostLabel))
     }
 
     fun w(tag: String, msg: String) {
         Log.w(tag, msg)
+        addRecent("WARN", tag, msg)
         enqueue(LogEntry("WARN", tag, msg, sessionId = _sessionId, host = _hostLabel))
     }
 
     fun e(tag: String, msg: String, throwable: Throwable? = null) {
         Log.e(tag, msg, throwable)
+        addRecent("ERROR", tag, if (throwable != null) "$msg — ${throwable.message}" else msg)
         val entry = LogEntry("ERROR", tag, msg, throwable?.let { Log.getStackTraceString(it) }, sessionId = _sessionId, host = _hostLabel)
         persistToFile(entry)
         sendNow(entry)
@@ -181,6 +233,7 @@ object RemoteLogger {
     fun crash(thread: Thread, throwable: Throwable) {
         val msg = "CRASH thread=${thread.name} ${throwable.message}"
         Log.e(TAG, msg, throwable)
+        addRecent("CRASH", TAG, msg)
         val entry = LogEntry("CRASH", TAG, msg, Log.getStackTraceString(throwable))
         enqueue(entry)
         forceFlush()
