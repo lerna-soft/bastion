@@ -1050,7 +1050,7 @@ private fun TerminalPagerContent(
                 showStats = showStats,
                 onToggleStats = onToggleStats,
                 fontSize = fontSize,
-                terminalColorMode = ColorMode.valueOf(ts.theme),
+                terminalColorMode = try { ColorMode.valueOf(ts.theme) } catch (_: Exception) { ColorMode.DARK },
                 onThemeChange = { onThemeChange(ts.id, it) },
                 modifier = Modifier.fillMaxSize()
             )

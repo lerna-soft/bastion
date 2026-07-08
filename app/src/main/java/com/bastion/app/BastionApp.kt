@@ -57,30 +57,17 @@ class BastionApp : Application() {
         // handler de excepciones de la JVM NO puede ver. Sobrevive al reinicio (lo da el sistema).
         logLastExitReason()
 
-        try {
-            java.security.Security.removeProvider("BC")
-        } catch (_: Exception) { }
-        try {
-            java.security.Security.insertProviderAt(
-                org.bouncycastle.jce.provider.BouncyCastleProvider(), 1
-            )
-        } catch (_: Exception) { }
-
-        org.apache.sshd.common.util.io.PathUtils.setUserHomeFolderResolver {
-            java.nio.file.Paths.get(filesDir.absolutePath)
-        }
-
-        database = AppDatabase.getInstance(this)
-        secretsStore = SecretsStore(this)
-        repository = VaultRepository(database, secretsStore)
-
+        // Instalar el capturador de crashes LO ANTES POSIBLE — antes de inicializar Keystore, Room,
+        // BouncyCastle, etc. — para que un fallo en esos pasos tempranos también quede con stack trace.
         val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            RemoteLogger.crash(thread, throwable)
+            // Escribir el archivo PRIMERO (síncrono, sin red) para que nunca se pierda el stack trace,
+            // incluso si el envío al servidor se cuelga o el proceso muere enseguida.
             try {
                 val crashFile = File(filesDir, "bastion_crash.log")
                 FileWriter(crashFile).use { w ->
                     w.write("=== BASTION CRASH ===\n")
+                    w.write("Version: v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n")
                     w.write("Thread: ${thread.name}\n")
                     w.write("Time: ${System.currentTimeMillis()}\n")
                     w.write("Message: ${throwable.message}\n")
@@ -97,6 +84,9 @@ class BastionApp : Application() {
                 }
             } catch (_: Exception) { }
 
+            // Luego intentar registrar/enviar (best-effort, puede tocar red).
+            try { RemoteLogger.crash(thread, throwable) } catch (_: Exception) { }
+
             // Requisito HIM-009: la app nunca debe cerrarse. Un error en un hilo de fondo se
             // registra y se traga — la app sigue viva. Solo el hilo principal es irrecuperable:
             // ahí sí persistimos y dejamos que el sistema termine el crash (se mostrará al reabrir).
@@ -107,6 +97,23 @@ class BastionApp : Application() {
                 System.exit(1)
             }
         }
+
+        try {
+            java.security.Security.removeProvider("BC")
+        } catch (_: Exception) { }
+        try {
+            java.security.Security.insertProviderAt(
+                org.bouncycastle.jce.provider.BouncyCastleProvider(), 1
+            )
+        } catch (_: Exception) { }
+
+        org.apache.sshd.common.util.io.PathUtils.setUserHomeFolderResolver {
+            java.nio.file.Paths.get(filesDir.absolutePath)
+        }
+
+        database = AppDatabase.getInstance(this)
+        secretsStore = SecretsStore(this)
+        repository = VaultRepository(database, secretsStore)
 
         checkForUpdate()
     }
