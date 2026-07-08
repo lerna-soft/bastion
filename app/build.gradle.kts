@@ -13,8 +13,8 @@ android {
         applicationId = "com.bastion.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.1.2"
+        versionCode = 15
+        versionName = "1.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -102,6 +102,13 @@ dependencies {
 
     // Core
     implementation("androidx.core:core-ktx:1.13.1")
+
+    // Tests
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("io.mockk:mockk:1.13.13")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    testImplementation("org.robolectric:robolectric:4.13")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
