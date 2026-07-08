@@ -43,8 +43,8 @@ object RemoteLogger {
         flushJob?.cancel()
         flushJob = scope.launch {
             logQueue.collect { entry ->
-                buffer.add(entry)
-                if (buffer.size >= 10) flush()
+                val size = synchronized(buffer) { buffer.add(entry); buffer.size }
+                if (size >= 10) flush()
             }
         }
         scope.launch {
@@ -122,9 +122,12 @@ object RemoteLogger {
     private fun flush() {
         if (flushing.getAndSet(true)) return
         try {
-            val batch = buffer.toList()
-            buffer.clear()
-            httpPost(buildJsonArray(batch))
+            val batch = synchronized(buffer) {
+                val b = buffer.toList()
+                buffer.clear()
+                b
+            }
+            if (batch.isNotEmpty()) httpPost(buildJsonArray(batch))
         } catch (_: Exception) { } finally {
             flushing.set(false)
         }
@@ -132,6 +135,25 @@ object RemoteLogger {
 
     fun forceFlush() {
         if (buffer.isNotEmpty()) flush()
+    }
+
+    /**
+     * Deliver [entry] to the server without depending on the async SharedFlow buffer.
+     * Fixes the race where an ERROR was emitted to [logQueue] but forceFlush() ran
+     * before the collector had added it to [buffer], so the error never reached the server.
+     * Sends any pending buffered entries together with [entry] in a single batch.
+     */
+    private fun sendNow(entry: LogEntry) {
+        scope.launch {
+            try {
+                val pending = synchronized(buffer) {
+                    val b = buffer.toList()
+                    buffer.clear()
+                    b
+                }
+                httpPost(buildJsonArray(pending + entry))
+            } catch (_: Exception) { }
+        }
     }
 
     private fun enqueue(entry: LogEntry) {
@@ -152,8 +174,8 @@ object RemoteLogger {
     fun e(tag: String, msg: String, throwable: Throwable? = null) {
         Log.e(tag, msg, throwable)
         val entry = LogEntry("ERROR", tag, msg, throwable?.let { Log.getStackTraceString(it) }, sessionId = _sessionId, host = _hostLabel)
-        enqueue(entry)
-        forceFlush()
+        persistToFile(entry)
+        sendNow(entry)
     }
 
     fun crash(thread: Thread, throwable: Throwable) {
@@ -169,7 +191,8 @@ object RemoteLogger {
                 if (f.exists() && f.length() > 0) {
                     val content = f.readText(Charsets.UTF_8).trim()
                     if (content.isNotEmpty()) {
-                        httpPost("[$content]")
+                        // entries are newline-separated JSON objects; join with commas for a valid array
+                        httpPost("[${content.replace("\n", ",")}]")
                     }
                 }
             } catch (_: Exception) { }

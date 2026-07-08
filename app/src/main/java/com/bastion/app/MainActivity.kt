@@ -165,9 +165,7 @@ class MainActivity : ComponentActivity() {
                             text = { Text("The update has been downloaded. Install it when ready.") },
                             confirmButton = {
                                 TextButton(onClick = {
-                                    val file = java.io.File(cacheDir, "updates")
-                                        .listFiles()?.firstOrNull()
-                                    if (file != null) UpdateChecker.installApk(this@MainActivity, file)
+                                    UpdateChecker.installApk(this@MainActivity, state.file)
                                 }) {
                                     Text("Install")
                                 }

@@ -23,7 +23,7 @@ sealed class UpdateState {
     data object Checking : UpdateState()
     data class Available(val info: UpdateInfo) : UpdateState()
     data class Downloading(val progress: Int, val info: UpdateInfo) : UpdateState()
-    data object Ready : UpdateState()
+    data class Ready(val file: File, val info: UpdateInfo) : UpdateState()
     data class Error(val msg: String) : UpdateState()
 }
 
@@ -120,7 +120,7 @@ class BastionApp : Application() {
                     _updateState.value = UpdateState.Downloading(pct, info)
                 }
                 if (file != null) {
-                    _updateState.value = UpdateState.Ready
+                    _updateState.value = UpdateState.Ready(file, info)
                     UpdateChecker.installApk(this@BastionApp, file)
                 } else {
                     _updateState.value = UpdateState.Error("download failed")

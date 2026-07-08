@@ -109,6 +109,7 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.13")
     testImplementation("androidx.compose.ui:ui-test-junit4")
     testImplementation("org.robolectric:robolectric:4.13")
+    testImplementation("org.json:json:20240303")
 
     // Debug
     debugImplementation("androidx.compose.ui:ui-tooling")
