@@ -55,15 +55,19 @@ sed -i "s/versionName = \"$CURRENT_VERSION\"/versionName = \"$NEW_VERSION\"/" "$
 git add "$GRADLE_FILE"
 git commit -m "chore: bump version to v$NEW_VERSION (code $NEW_CODE)"
 
-# --- Build APK ---
-echo "🏗️  Building APK v$NEW_VERSION..."
+# --- Build APK (release: debuggable=false, para que Android no marque la app como
+#     'de desarrollo' al instalarla fuera de Play Store; firmada con el mismo keystore) ---
+echo "🏗️  Rebuilding bastion-builder image..."
+docker build -t bastion-builder "$PROJECT_DIR" > /dev/null
+
+echo "🏗️  Building APK v$NEW_VERSION (release)..."
 docker run --rm \
     -v "$PROJECT_DIR:/src" \
     -v "$JDK_DIR:/opt/jdk17" \
     -v "$SDK_DIR:/opt/android-sdk" \
     bastion-builder 2>&1 | tail -5
 
-APK_SRC="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+APK_SRC="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
 if [ ! -f "$APK_SRC" ]; then
     echo "❌ APK build failed — no APK generated"
     exit 1

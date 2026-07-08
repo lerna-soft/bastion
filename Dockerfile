@@ -12,4 +12,4 @@ ENV PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/pla
 
 WORKDIR /src
 
-CMD ["./gradlew", "assembleDebug"]
+CMD ["./gradlew", "assembleRelease"]

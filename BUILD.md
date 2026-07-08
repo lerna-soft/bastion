@@ -75,14 +75,19 @@ ENV JAVA_HOME=/opt/jdk17
 ENV ANDROID_HOME=/opt/android-sdk
 ENV PATH=$JAVA_HOME/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
 WORKDIR /src
-CMD ["./gradlew", "assembleDebug"]
+CMD ["./gradlew", "assembleRelease"]
 ```
+
+> Nota: se usa `assembleRelease` (no `assembleDebug`) para que el APK final tenga
+> `debuggable=false` — un build `debug` siempre lleva ese flag sin importar la firma,
+> y Android/Play Protect muestra avisos extra ("app para desarrolladores") al instalarlo
+> fuera de Play Store. `release` está firmado con el mismo `bastion-release.keystore`.
 
 ## Output APK
 
 ```bash
 # APK generado en:
-/home/lerna/proyectos/bastion/app/build/outputs/apk/debug/app-debug.apk
+/home/lerna/proyectos/bastion/app/build/outputs/apk/release/app-release.apk
 
 # Copiado automáticamente a:
 /home/lerna/apk-share/bastion-debug.apk

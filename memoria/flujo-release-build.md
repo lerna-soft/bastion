@@ -9,9 +9,11 @@ metadata:
 1. Lee versión actual de `app/build.gradle.kts`.
 2. Bump semver según tipo; `versionCode` +1 automático.
 3. Actualiza `build.gradle.kts`, `git commit -m "chore: bump version to vX.Y.Z (code N)"`.
-4. Build APK en Docker (`bastion-builder`, JDK17 + Android SDK montados).
-5. Verifica que exista `app/build/outputs/apk/debug/app-debug.apk` (aborta si no).
-6. Copia a `~/apk-share/bastion-v{VERSION}.apk` y `~/apk-share/bastion-debug.apk`.
+4. Rebuildea la imagen Docker `bastion-builder` (desde 2026-07-08, ver nota abajo) y compila con
+   `./gradlew assembleRelease` (buildType `release`, JDK17 + Android SDK montados).
+5. Verifica que exista `app/build/outputs/apk/release/app-release.apk` (aborta si no).
+6. Copia a `~/apk-share/bastion-v{VERSION}.apk` y `~/apk-share/bastion-debug.apk` (el nombre del
+   alias sigue diciendo "debug" por compatibilidad, pero el binario ya es `release`).
 7. `git tag -a vX.Y.Z` + push tag + push master.
 8. `gh release create` en `lerna-admin/bastion` — solo notas, sin subir APK (RHD-BST-003).
 9. Genera/actualiza `~/apk-share/latest.json` (versionName, versionCode, downloadUrl, changelog, etc.).
@@ -19,10 +21,19 @@ metadata:
 
 **Build rápido (`./build-apk.sh`)** — NO bumpea versión, NO tagea, NO crea release GitHub:
 1. Verifica JDK/SDK locales.
-2. `docker build` + `docker run` → `./gradlew assembleDebug`.
-3. Copia APK a `bastion-debug.apk` y a nombre con timestamp.
+2. `docker build` + `docker run` → `./gradlew assembleRelease`.
+3. Copia APK a `bastion-debug.apk` (alias) y a nombre con timestamp.
 4. Regenera `latest.json` con changelog genérico.
 5. Reinicia `serve.py`.
+
+**Cambio 2026-07-08 (debuggable=false):** el `Dockerfile` pasó de `assembleDebug` a
+`assembleRelease`. Antes, TODO build (incluso firmado con el keystore real) llevaba
+`android:debuggable="true"` porque Android lo marca automático para el buildType `debug`,
+sin importar la firma — eso disparaba avisos extra de Android/Play Protect ("app para
+desarrolladores") al instalar fuera de Play Store. Se agregó un buildType `release`
+(mismo keystore, `isMinifyEnabled=false` a propósito por reflexión de SSHD/BouncyCastle
+no probada con shrink) y `release.sh` ahora rebuildea la imagen Docker en cada corrida
+(antes no lo hacía, asumía la imagen ya construida — necesario porque cambió el `CMD`).
 
 **Why:** `build-apk.sh` existe para iterar rápido en desarrollo sin generar una versión "oficial" cada vez. Pero si se ejecuta directamente como si fuera un release, viola RHD-BST-001/006 (ver [[inconsistencias-pendientes]] #4).
 
