@@ -6,6 +6,14 @@ JDK_DIR="$HOME/dev-tools/jdk-17.0.19+10"
 SDK_DIR="$HOME/android-build-env/android-sdk"
 OUT_DIR="$HOME/apk-share"
 
+if [ -z "${BASTION_KEYSTORE_PASSWORD:-}" ] && [ -f "$HOME/.bastion-secrets.env" ]; then
+    source "$HOME/.bastion-secrets.env"
+fi
+if [ -z "${BASTION_KEYSTORE_PASSWORD:-}" ]; then
+    echo "❌ BASTION_KEYSTORE_PASSWORD no está definida (ni en el entorno ni en ~/.bastion-secrets.env)"
+    exit 1
+fi
+
 if [ ! -d "$JDK_DIR" ]; then
     echo "❌ JDK no encontrado en $JDK_DIR"
     exit 1
@@ -26,6 +34,7 @@ docker run --rm \
     -v "$PROJECT_DIR:/src" \
     -v "$JDK_DIR:/opt/jdk17" \
     -v "$SDK_DIR:/opt/android-sdk" \
+    -e BASTION_KEYSTORE_PASSWORD="$BASTION_KEYSTORE_PASSWORD" \
     bastion-builder
 
 APK_SRC="$PROJECT_DIR/platforms/android/build/outputs/apk/release/android-release.apk"

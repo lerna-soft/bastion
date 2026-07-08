@@ -8,50 +8,77 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for the pure logic extracted from UpdateChecker (HIM-007).
+ * Unit tests for the pure logic extracted from UpdateChecker (HIM-007, HIM-018).
  * These run under plain JUnit — the IO/Context-bound parts (network, FileProvider,
  * startActivity) are intentionally not exercised here.
  */
 class UpdateCheckerTest {
 
-    private val validResponse = """
+    private val validGithubRelease = """
         {
-          "update": true,
-          "versionName": "1.1.10",
-          "versionCode": 22,
-          "downloadUrl": "http://192.168.0.100:8765/apk-share/bastion-v1.1.10.apk",
-          "fileName": "bastion-v1.1.10.apk",
-          "timestamp": "20260708-1000",
-          "fileSize": 23609861,
-          "changelog": "fix update flow"
+          "tag_name": "v1.1.25",
+          "body": "fix update flow",
+          "published_at": "2026-07-08T20:00:00Z",
+          "assets": [
+            {
+              "name": "bastion-android-v1.1.25.apk",
+              "browser_download_url": "https://github.com/lerna-admin/bastion/releases/download/v1.1.25/bastion-android-v1.1.25.apk",
+              "size": 23609861
+            }
+          ]
         }
     """.trimIndent()
 
-    // --- T1: parseUpdateResponse -------------------------------------------------
+    // --- T1: parseGithubRelease ---------------------------------------------------
 
     @Test
-    fun `parseUpdateResponse returns info when server code is newer`() {
-        val info = UpdateChecker.parseUpdateResponse(validResponse, localCode = 21)
-        assertEquals("1.1.10", info?.versionName)
-        assertEquals(22, info?.versionCode)
-        assertEquals("bastion-v1.1.10.apk", info?.fileName)
+    fun `parseGithubRelease returns info when tag is newer`() {
+        val info = UpdateChecker.parseGithubRelease(validGithubRelease, localVersion = "1.1.24")
+        assertEquals("1.1.25", info?.versionName)
+        assertEquals("bastion-android-v1.1.25.apk", info?.fileName)
         assertEquals(23609861L, info?.fileSize)
+        assertEquals(
+            "https://github.com/lerna-admin/bastion/releases/download/v1.1.25/bastion-android-v1.1.25.apk",
+            info?.downloadUrl
+        )
     }
 
     @Test
-    fun `parseUpdateResponse returns null when server code equals local`() {
-        assertNull(UpdateChecker.parseUpdateResponse(validResponse, localCode = 22))
+    fun `parseGithubRelease returns null when tag equals local`() {
+        assertNull(UpdateChecker.parseGithubRelease(validGithubRelease, localVersion = "1.1.25"))
     }
 
     @Test
-    fun `parseUpdateResponse returns null when server code is older`() {
-        assertNull(UpdateChecker.parseUpdateResponse(validResponse, localCode = 99))
+    fun `parseGithubRelease returns null when tag is older`() {
+        assertNull(UpdateChecker.parseGithubRelease(validGithubRelease, localVersion = "9.9.9"))
     }
 
     @Test
-    fun `parseUpdateResponse returns null when update flag is false`() {
-        val body = """{"update": false, "versionCode": 22}"""
-        assertNull(UpdateChecker.parseUpdateResponse(body, localCode = 1))
+    fun `parseGithubRelease returns null when no android asset present`() {
+        val body = """{"tag_name": "v1.1.25", "assets": [{"name": "bastion-desktop-linux.deb", "browser_download_url": "x", "size": 1}]}"""
+        assertNull(UpdateChecker.parseGithubRelease(body, localVersion = "1.1.24"))
+    }
+
+    // --- isNewerVersion (semver) --------------------------------------------------
+
+    @Test
+    fun `isNewerVersion true when patch is greater`() {
+        assertTrue(UpdateChecker.isNewerVersion("v1.1.25", "1.1.24"))
+    }
+
+    @Test
+    fun `isNewerVersion false when equal`() {
+        assertFalse(UpdateChecker.isNewerVersion("v1.1.24", "1.1.24"))
+    }
+
+    @Test
+    fun `isNewerVersion false when older`() {
+        assertFalse(UpdateChecker.isNewerVersion("v1.0.0", "1.1.24"))
+    }
+
+    @Test
+    fun `isNewerVersion true when major is greater`() {
+        assertTrue(UpdateChecker.isNewerVersion("2.0.0", "1.9.9"))
     }
 
     // --- T2: isValidDownload -----------------------------------------------------

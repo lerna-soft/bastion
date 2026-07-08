@@ -1,4 +1,10 @@
-const API_KEY = "AQ.Ab8RN6IAOY3R_brSs-qjuLZxfisqk-FefrRhzehu2jgaRhJLgg";
+// Nunca hardcodear la key aquí (el repo es público desde HIM-018). Se toma del
+// entorno — exportala en tu shell o `source ~/.bastion-secrets.env` antes de correr
+// opencode. Ver AGENTS.md sección "Secretos" para dónde vive.
+const API_KEY = process.env.STITCH_API_KEY;
+if (!API_KEY) {
+  process.stderr.write("E:STITCH_API_KEY no está definida en el entorno\n");
+}
 const BASE_URL = "https://stitch.googleapis.com/mcp";
 
 let buf = "";

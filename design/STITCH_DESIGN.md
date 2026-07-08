@@ -3,7 +3,7 @@
 > **Proyecto Stitch:** `2946918035035581471` — "SSH Terminal Manager"
 > **Fecha extracción:** 2026-07-08
 > **Fuente:** Google Stitch MCP (`stitch.googleapis.com/mcp`)
-> **API Key:** `AQ.Ab8RN6IAOY3R_brSs-qjuLZxfisqk-FefrRhzehu2jgaRhJLgg`
+> **API Key:** ver `~/.bastion-secrets.env` (`STITCH_API_KEY`) — NUNCA hardcodear aquí, ver `AGENTS.md` sección "Secretos"
 
 ---
 

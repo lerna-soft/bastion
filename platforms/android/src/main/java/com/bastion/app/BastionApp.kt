@@ -239,10 +239,10 @@ class BastionApp : Application() {
         _updateState.value = UpdateState.Checking
         appScope.launch {
             try {
-                val info = UpdateChecker.checkForUpdate("http://192.168.0.100:8765")
+                val info = UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME)
                 if (info != null) {
                     _updateState.value = UpdateState.Available(info)
-                    RemoteLogger.i("BastionApp", "update available: v${info.versionName} (code ${info.versionCode})")
+                    RemoteLogger.i("BastionApp", "update available: v${info.versionName}")
                 } else {
                     _updateState.value = UpdateState.Idle
                     RemoteLogger.i("BastionApp", "no update available")

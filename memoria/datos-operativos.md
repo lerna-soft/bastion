@@ -12,7 +12,7 @@ Servidor: `serve.py` en puerto **8765**, URL `http://192.168.0.100:8765/`. Endpo
 GitHub: `https://github.com/lerna-admin/bastion` (privado) — releases solo con notas, sin subir APK (RHD-BST-003, ver [[reglas-rhd-bst]]).
 
 Stitch (diseño, MCP):
-- API Key: `AQ.Ab8RN6IAOY3R_brSs-qjuLZxfisqk-FefrRhzehu2jgaRhJLgg`
+- API Key: en `~/.bastion-secrets.env` (`STITCH_API_KEY`) — NUNCA en archivos del repo (público desde HIM-018), ver `AGENTS.md` sección "Secretos"
 - Project ID activo ("SSH Terminal Manager" / Terminal Core): `2946918035035581471`
 - Project ID antiguo/obsoleto ("Bastion App Redesign"): `2134170800474297456` (ver [[inconsistencias-pendientes]] #1)
 - Bridge MCP local: `.opencode/stitch-bridge.mjs`, configurado en `opencode.json`.

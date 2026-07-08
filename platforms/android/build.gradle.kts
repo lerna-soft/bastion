@@ -24,10 +24,15 @@ android {
 
     signingConfigs {
         create("release") {
+            // La password NUNCA va hardcodeada en el repo (fue rotada tras una exposición
+            // previa en texto plano). Se lee de BASTION_KEYSTORE_PASSWORD — exportada en el
+            // shell del servidor de build, nunca commiteada. Ver release.sh/build-apk.sh.
+            val ksPassword = System.getenv("BASTION_KEYSTORE_PASSWORD")
+                ?: error("BASTION_KEYSTORE_PASSWORD no está definida. Exportala antes de compilar release.")
             storeFile = file("${rootProject.projectDir}/bastion-release.keystore")
-            storePassword = "bastion123"
+            storePassword = ksPassword
             keyAlias = "bastion"
-            keyPassword = "bastion123"
+            keyPassword = ksPassword
         }
     }
 

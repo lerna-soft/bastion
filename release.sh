@@ -17,6 +17,7 @@ set -euo pipefail
 #   - Android SDK at $HOME/android-build-env/android-sdk
 #   - gh CLI authenticated
 #   - git remote 'origin' set to lerna-admin/bastion
+#   - BASTION_KEYSTORE_PASSWORD exportada (ver ~/.bastion-secrets.env, NUNCA en el repo)
 # ============================================================
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -25,6 +26,16 @@ JDK_DIR="$HOME/dev-tools/jdk-17.0.19+10"
 SDK_DIR="$HOME/android-build-env/android-sdk"
 OUT_DIR="$HOME/apk-share"
 GITHUB_REPO="lerna-admin/bastion"
+
+# Password del keystore: nunca hardcodeada. Se toma del entorno o de un archivo
+# gitignored fuera del repo.
+if [ -z "${BASTION_KEYSTORE_PASSWORD:-}" ] && [ -f "$HOME/.bastion-secrets.env" ]; then
+    source "$HOME/.bastion-secrets.env"
+fi
+if [ -z "${BASTION_KEYSTORE_PASSWORD:-}" ]; then
+    echo "❌ BASTION_KEYSTORE_PASSWORD no está definida (ni en el entorno ni en ~/.bastion-secrets.env)"
+    exit 1
+fi
 
 BUMP_TYPE="${1:-patch}"
 
@@ -65,6 +76,7 @@ docker run --rm \
     -v "$PROJECT_DIR:/src" \
     -v "$JDK_DIR:/opt/jdk17" \
     -v "$SDK_DIR:/opt/android-sdk" \
+    -e BASTION_KEYSTORE_PASSWORD="$BASTION_KEYSTORE_PASSWORD" \
     bastion-builder 2>&1 | tail -5
 
 APK_SRC="$PROJECT_DIR/platforms/android/build/outputs/apk/release/android-release.apk"
@@ -85,16 +97,30 @@ FILESIZE=$(stat -c%s "$APK_SRC")
 echo "✅ APK built: $OUT_DIR/$APK_FILENAME ($FILESIZE bytes)"
 echo ""
 
-# --- Tag & Push to GitHub (NO APK upload — repo is private) ---
+# --- Tag & Push to GitHub ---
 echo "🏷️  Tagging v$NEW_VERSION..."
 git tag -a "v$NEW_VERSION" -m "Bastion v$NEW_VERSION"
 git push origin "v$NEW_VERSION"
 git push origin master
 
-echo "🚀 Creating GitHub release (notes only)..."
-gh release create "v$NEW_VERSION" \
+# HIM-018: repo público, el APK se adjunta como asset real del release (antes solo
+# notas, RHD-BST-003 quedó obsoleta). Nombre con prefijo de plataforma para que
+# docs/index.html y el auto-updater lo encuentren por convención de nombre.
+ASSET_NAME="bastion-android-v${NEW_VERSION}.apk"
+cp "$APK_SRC" "$OUT_DIR/$ASSET_NAME"
+
+echo "🚀 Creating GitHub release (con APK adjunto)..."
+gh release create "v$NEW_VERSION" "$OUT_DIR/$ASSET_NAME" \
     --title "Bastion v$NEW_VERSION" \
-    --notes "## Bastion v${NEW_VERSION}\n\n### Changelog\n- See commits: https://github.com/${GITHUB_REPO}/compare/v${CURRENT_VERSION}...v${NEW_VERSION}\n\n### Download\nAPK disponible en servidor local: http://192.168.0.100:8765/apk-share/${APK_FILENAME}" \
+    --notes "## Bastion v${NEW_VERSION}
+
+### Changelog
+- See commits: https://github.com/${GITHUB_REPO}/compare/v${CURRENT_VERSION}...v${NEW_VERSION}
+
+### Download
+- Android: adjunto en este release (${ASSET_NAME})
+- Desktop (Windows/Linux/Mac): próximamente
+- Índice de descargas: https://lerna-admin.github.io/bastion/" \
     --repo "$GITHUB_REPO" 2>&1
 
 echo "✅ Release created: https://github.com/$GITHUB_REPO/releases/tag/v$NEW_VERSION"

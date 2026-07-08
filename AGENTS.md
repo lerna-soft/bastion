@@ -86,6 +86,27 @@ gráfico** (`$DISPLAY` vacío, sin Wayland, sin Xvfb instalado). Para el trabajo
 
 ---
 
+## Secretos — dónde buscarlos (NUNCA en archivos del repo)
+
+Desde HIM-018 el repo es **público**, así que ningún secreto vive hardcodeado en
+ningún archivo trackeado. Todos viven en `~/.bastion-secrets.env` (fuera del repo,
+permisos 600, en este servidor) y se cargan con `source ~/.bastion-secrets.env` o
+exportando la variable antes de correr el script/tool que la necesita:
+
+| Variable | Para qué | Dónde se usa |
+|----------|----------|---------------|
+| `BASTION_KEYSTORE_PASSWORD` | Password del keystore de firma (`bastion-release.keystore`) | `platforms/android/build.gradle.kts` (signingConfig), `release.sh`, `build-apk.sh` |
+| `STITCH_API_KEY` | API key del MCP de Stitch (diseño) | `.opencode/stitch-bridge.mjs` |
+
+Si `~/.bastion-secrets.env` no existe en el servidor donde estás trabajando (p.ej. un
+servidor nuevo tras `git clone`), hay que recrearlo con las passwords/keys reales
+(pedírselas al usuario — este documento nunca las contiene). Ambos valores actuales
+fueron rotados el 2026-07-08 tras encontrarlos hardcodeados en el repo; las versiones
+viejas expuestas en el historial de git ya no son válidas (keystore) o se aceptó el
+riesgo de dejarlas (Stitch, decisión del usuario).
+
+---
+
 ## Reglas críticas
 
 ### RHD-BST — reglas operativas de build/release (copiadas aquí desde el AGENTS.md
@@ -270,7 +291,7 @@ flowchart LR
 > queda como referencia histórica de assets/tokens de Stitch, no como el diseño activo.
 
 - **Project ID:** `2946918035035581471` — "SSH Terminal Manager"
-- **API Key:** `AQ.Ab8RN6IAOY3R_brSs-qjuLZxfisqk-FefrRhzehu2jgaRhJLgg`
+- **API Key:** ver sección "Secretos" abajo — NUNCA hardcodear aquí (repo público desde HIM-018)
 - **MCP endpoint:** `https://stitch.googleapis.com/mcp`
 - **Diseño completo:** `design/STITCH_DESIGN.md`
 

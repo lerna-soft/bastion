@@ -17,10 +17,8 @@ import java.net.URL
 
 data class UpdateInfo(
     val versionName: String,
-    val versionCode: Int,
     val downloadUrl: String,
     val fileName: String,
-    val timestamp: String,
     val fileSize: Long,
     val changelog: String
 )
@@ -28,24 +26,53 @@ data class UpdateInfo(
 object UpdateChecker {
     private const val TAG = "UpdateChecker"
 
+    // HIM-018: repo público, releases reales en GitHub (antes solo notas + servidor local).
+    private const val GITHUB_REPO = "lerna-admin/bastion"
+    private const val ANDROID_ASSET_PREFIX = "bastion-android-"
+
     /**
-     * Pure parser: turns the /update JSON response into an [UpdateInfo] when the server
-     * offers a newer versionCode than [localCode]. Returns null otherwise. Extracted from
-     * IO so it can be unit-tested without a network connection (see UpdateCheckerTest).
+     * Compara dos versiones semver "X.Y.Z" (con o sin prefijo "v"). true si [remote] es
+     * estrictamente mayor que [local]. Pura y testeable sin red.
      */
-    fun parseUpdateResponse(response: String, localCode: Int): UpdateInfo? {
+    fun isNewerVersion(remote: String, local: String): Boolean {
+        fun parts(v: String) = v.removePrefix("v").split(".").map { it.toIntOrNull() ?: 0 }
+        val r = parts(remote)
+        val l = parts(local)
+        for (i in 0 until maxOf(r.size, l.size)) {
+            val rv = r.getOrElse(i) { 0 }
+            val lv = l.getOrElse(i) { 0 }
+            if (rv != lv) return rv > lv
+        }
+        return false
+    }
+
+    /**
+     * Parsea la respuesta de `GET /repos/{repo}/releases/latest` de GitHub. Devuelve null si no
+     * hay asset de Android o si la versión remota no es más nueva que [localVersion]. Pura y
+     * testeable sin red (ver UpdateCheckerTest).
+     */
+    fun parseGithubRelease(response: String, localVersion: String): UpdateInfo? {
         val json = JSONObject(response)
-        if (!json.optBoolean("update", false)) return null
-        val serverCode = json.getInt("versionCode")
-        if (serverCode <= localCode) return null
+        val tag = json.optString("tag_name", "").ifBlank { return null }
+        if (!isNewerVersion(tag, localVersion)) return null
+
+        val assets = json.optJSONArray("assets") ?: return null
+        var asset: JSONObject? = null
+        for (i in 0 until assets.length()) {
+            val a = assets.getJSONObject(i)
+            if (a.optString("name").startsWith(ANDROID_ASSET_PREFIX)) {
+                asset = a
+                break
+            }
+        }
+        val a = asset ?: return null
+
         return UpdateInfo(
-            versionName = json.getString("versionName"),
-            versionCode = serverCode,
-            downloadUrl = json.getString("downloadUrl"),
-            fileName = json.getString("fileName"),
-            timestamp = json.optString("timestamp", ""),
-            fileSize = json.optLong("fileSize", 0),
-            changelog = json.optString("changelog", "")
+            versionName = tag.removePrefix("v"),
+            downloadUrl = a.getString("browser_download_url"),
+            fileName = a.getString("name"),
+            fileSize = a.optLong("size", 0),
+            changelog = json.optString("body", "")
         )
     }
 
@@ -67,20 +94,20 @@ object UpdateChecker {
     fun isInstallPermissionGranted(sdkInt: Int, canRequestPackageInstalls: Boolean): Boolean =
         sdkInt < Build.VERSION_CODES.O || canRequestPackageInstalls
 
-    suspend fun checkForUpdate(serverUrl: String): UpdateInfo? = withContext(Dispatchers.IO) {
+    suspend fun checkForUpdate(localVersion: String): UpdateInfo? = withContext(Dispatchers.IO) {
         try {
-            val url = URL("$serverUrl/update")
+            val url = URL("https://api.github.com/repos/$GITHUB_REPO/releases/latest")
             val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 5000
-            conn.readTimeout = 5000
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
             conn.requestMethod = "GET"
+            conn.setRequestProperty("Accept", "application/vnd.github+json")
 
             val response = conn.inputStream.bufferedReader().readText()
             conn.disconnect()
 
-            val myCode = com.bastion.app.BuildConfig.VERSION_CODE
-            val info = parseUpdateResponse(response, myCode)
-            RemoteLogger.i(TAG, "checkForUpdate: server=${info?.versionCode ?: "none"} local=$myCode")
+            val info = parseGithubRelease(response, localVersion)
+            RemoteLogger.i(TAG, "checkForUpdate (GitHub): remote=${info?.versionName ?: "none"} local=$localVersion")
             info
         } catch (e: Exception) {
             RemoteLogger.e(TAG, "check failed: ${e.message}", e)
@@ -104,10 +131,24 @@ object UpdateChecker {
 
             log.i("downloading ${updateInfo.downloadUrl}")
             val url = URL(updateInfo.downloadUrl)
-            val conn = url.openConnection() as HttpURLConnection
+            var conn = url.openConnection() as HttpURLConnection
+            conn.instanceFollowRedirects = true
             conn.connectTimeout = 10_000
             conn.readTimeout = 30_000
             conn.connect()
+
+            // GitHub asset downloads responden con un 302 hacia un blob S3 firmado; seguirlo
+            // manualmente porque HttpURLConnection no sigue redirects entre hosts distintos.
+            var redirects = 0
+            while (conn.responseCode in intArrayOf(301, 302, 303, 307, 308) && redirects < 5) {
+                val next = conn.getHeaderField("Location") ?: break
+                conn.disconnect()
+                conn = URL(next).openConnection() as HttpURLConnection
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 30_000
+                conn.connect()
+                redirects++
+            }
 
             val total = conn.contentLength
             val input = conn.inputStream
