@@ -20,7 +20,7 @@ set -euo pipefail
 # ============================================================
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-GRADLE_FILE="$PROJECT_DIR/app/build.gradle.kts"
+GRADLE_FILE="$PROJECT_DIR/platforms/android/build.gradle.kts"
 JDK_DIR="$HOME/dev-tools/jdk-17.0.19+10"
 SDK_DIR="$HOME/android-build-env/android-sdk"
 OUT_DIR="$HOME/apk-share"
@@ -67,7 +67,7 @@ docker run --rm \
     -v "$SDK_DIR:/opt/android-sdk" \
     bastion-builder 2>&1 | tail -5
 
-APK_SRC="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+APK_SRC="$PROJECT_DIR/platforms/android/build/outputs/apk/release/app-release.apk"
 if [ ! -f "$APK_SRC" ]; then
     echo "❌ APK build failed — no APK generated"
     exit 1

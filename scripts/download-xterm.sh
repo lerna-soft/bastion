@@ -3,7 +3,7 @@ set -euo pipefail
 
 XTERM_CORE_VERSION="6.0.0"
 XTERM_ADDON_FIT_VERSION="0.11.0"
-ASSETS_DIR="app/src/main/assets/terminal"
+ASSETS_DIR="platforms/android/src/main/assets/terminal"
 mkdir -p "$ASSETS_DIR"
 
 echo "⬇️  Downloading xterm.js v${XTERM_CORE_VERSION}..."
