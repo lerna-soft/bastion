@@ -1,0 +1,180 @@
+{
+  "name": "projects/2946918035035581471",
+  "title": "SSH Terminal Manager",
+  "visibility": "PUBLIC",
+  "createTime": "2026-07-08T01:24:43.663660Z",
+  "updateTime": "2026-07-08T01:49:14.582664Z",
+  "projectType": "TEXT_TO_UI_PRO",
+  "thumbnailScreenshot": {
+    "name": "projects/2946918035035581471/screens/07c926c0f65fea5de993ede5d4e388efc0564f2bf76a5f5a398a1881f6cf080f/fileEntries/screenshot",
+    "downloadUrl": "https://lh3.googleusercontent.com/aida/AP1WRLsgAZpJaQUJQ3mzmQInHU7fmpVt1YE91RHV-D03RcNTGOSd-z2n24HUvjRohxLagh073l2Xb4rY35m4yvaOyzru24sXec2Aq0mo0htQIJvTqXWnrcUIEXacBUw6wopzGqKVqoISCkQUZjSgs_OPx5_zI6P8fRoZLyeau7pyJ-QwbFS6_EkdNLQvxPqBBriDjXsVCeLRNGKAm1Apu9KTnYXYyxJ1QCJpTosznCN2kuvCfLWkAAbw-9vmsZQ"
+  },
+  "origin": "STITCH",
+  "deviceType": "DESKTOP",
+  "designTheme": {
+    "colorMode": "DARK",
+    "font": "INTER",
+    "roundness": "ROUND_FOUR",
+    "customColor": "#00ff41",
+    "headlineFont": "INTER",
+    "bodyFont": "INTER",
+    "namedColors": {
+      "background": "#0c160a",
+      "error": "#ffb4ab",
+      "error_container": "#93000a",
+      "inverse_on_surface": "#283326",
+      "inverse_primary": "#006e16",
+      "inverse_surface": "#dae6d2",
+      "on_background": "#dae6d2",
+      "on_error": "#690005",
+      "on_error_container": "#ffdad6",
+      "on_primary": "#003907",
+      "on_primary_container": "#007117",
+      "on_primary_fixed": "#002203",
+      "on_primary_fixed_variant": "#00530e",
+      "on_secondary": "#002e68",
+      "on_secondary_container": "#00285b",
+      "on_secondary_fixed": "#001a41",
+      "on_secondary_fixed_variant": "#004493",
+      "on_surface": "#dae6d2",
+      "on_surface_variant": "#b9ccb2",
+      "on_tertiary": "#442b10",
+      "on_tertiary_container": "#7a5b3c",
+      "on_tertiary_fixed": "#2c1701",
+      "on_tertiary_fixed_variant": "#5d4124",
+      "outline": "#84967e",
+      "outline_variant": "#3b4b37",
+      "primary": "#ebffe2",
+      "primary_container": "#00ff41",
+      "primary_fixed": "#72ff70",
+      "primary_fixed_dim": "#00e639",
+      "secondary": "#adc7ff",
+      "secondary_container": "#4a8eff",
+      "secondary_fixed": "#d8e2ff",
+      "secondary_fixed_dim": "#adc7ff",
+      "surface": "#0c160a",
+      "surface_bright": "#313c2e",
+      "surface_container": "#182216",
+      "surface_container_high": "#222d20",
+      "surface_container_highest": "#2d382a",
+      "surface_container_low": "#141e12",
+      "surface_container_lowest": "#071106",
+      "surface_dim": "#0c160a",
+      "surface_tint": "#00e639",
+      "surface_variant": "#2d382a",
+      "tertiary": "#fff8f4",
+      "tertiary_container": "#ffd5ae",
+      "tertiary_fixed": "#ffdcbd",
+      "tertiary_fixed_dim": "#e7bf99"
+    },
+    "designMd": "---\nname: Terminal Core\ncolors:\n  surface: '#0c160a'\n  surface-dim: '#0c160a'\n  surface-bright: '#313c2e'\n  surface-container-lowest: '#071106'\n  surface-container-low: '#141e12'\n  surface-container: '#182216'\n  surface-container-high: '#222d20'\n  surface-container-highest: '#2d382a'\n  on-surface: '#dae6d2'\n  on-surface-variant: '#b9ccb2'\n  inverse-surface: '#dae6d2'\n  inverse-on-surface: '#283326'\n  outline: '#84967e'\n  outline-variant: '#3b4b37'\n  surface-tint: '#00e639'\n  primary: '#ebffe2'\n  on-primary: '#003907'\n  primary-container: '#00ff41'\n  on-primary-container: '#007117'\n  inverse-primary: '#006e16'\n  secondary: '#adc7ff'\n  on-secondary: '#002e68'\n  secondary-container: '#4a8eff'\n  on-secondary-container: '#00285b'\n  tertiary: '#fff8f4'\n  on-tertiary: '#442b10'\n  tertiary-container: '#ffd5ae'\n  on-tertiary-container: '#7a5b3c'\n  error: '#ffb4ab'\n  on-error: '#690005'\n  error-container: '#93000a'\n  on-error-container: '#ffdad6'\n  primary-fixed: '#72ff70'\n  primary-fixed-dim: '#00e639'\n  on-primary-fixed: '#002203'\n  on-primary-fixed-variant: '#00530e'\n  secondary-fixed: '#d8e2ff'\n  secondary-fixed-dim: '#adc7ff'\n  on-secondary-fixed: '#001a41'\n  on-secondary-fixed-variant: '#004493'\n  tertiary-fixed: '#ffdcbd'\n  tertiary-fixed-dim: '#e7bf99'\n  on-tertiary-fixed: '#2c1701'\n  on-tertiary-fixed-variant: '#5d4124'\n  background: '#0c160a'\n  on-background: '#dae6d2'\n  surface-variant: '#2d382a'\ntypography:\n  display-lg:\n    fontFamily: Inter\n    fontSize: 32px\n    fontWeight: '700'\n    lineHeight: '1.2'\n    letterSpacing: -0.02em\n  headline-md:\n    fontFamily: Inter\n    fontSize: 20px\n    fontWeight: '600'\n    lineHeight: '1.4'\n  ui-body:\n    fontFamily: Inter\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: '1.5'\n  ui-label-bold:\n    fontFamily: Inter\n    fontSize: 12px\n    fontWeight: '600'\n    lineHeight: '1.2'\n  terminal-main:\n    fontFamily: JetBrains Mono\n    fontSize: 14px\n    fontWeight: '400'\n    lineHeight: '1.6'\n  terminal-sm:\n    fontFamily: JetBrains Mono\n    fontSize: 12px\n    fontWeight: '400'\n    lineHeight: '1.4'\nrounded:\n  sm: 0.125rem\n  DEFAULT: 0.25rem\n  md: 0.375rem\n  lg: 0.5rem\n  xl: 0.75rem\n  full: 9999px\nspacing:\n  unit: 4px\n  sidebar-width: 260px\n  terminal-padding: 1rem\n  gutter: 12px\n  margin-sm: 8px\n  margin-md: 16px\n  margin-lg: 24px\n---\n\n## Brand & Style\n\nThis design system is engineered for power users, developers, and system administrators who require a high-performance, low-distraction environment for remote server management. The brand personality is **technical, precise, and authoritative**, prioritizing utility over decoration.\n\nThe aesthetic follows a **Modern Technical Minimalism** approach. It leverages deep obsidian surfaces to reduce eye strain during long sessions, punctuated by vibrant \"phosphor\" accents that draw attention to active data and system status. The style blends the efficiency of a command-line interface with the sophisticated layering of modern desktop software, utilizing subtle glassmorphism for modal overlays to maintain spatial awareness of the terminal background.\n\n## Colors\n\nThe palette is anchored in a **Midnight Black** (`#0D1117`) core to ensure maximum contrast for terminal output. \n\n- **Primary (Neon Green):** Reserved for active prompts, successful connection pings, and primary \"Execute\" actions. It mimics the classic terminal phosphor.\n- **Secondary (Electric Blue):** Used for interactive UI elements, links, and selection states to distinguish \"Interface\" from \"Output.\"\n- **Neutrals (Slate Grays):** Utilized for borders, inactive tabs, and secondary metadata to create a clear visual hierarchy without competing with the terminal text.\n- **Semantic Colors:** Alert Red and Warning Orange are strictly reserved for critical errors, high-latency warnings, or destructive actions (like \"Drop Connection\").\n\n## Typography\n\nThis system utilizes a dual-font strategy to separate **Control** from **Content**.\n\n- **Navigation & UI (Inter):** A clean, highly legible sans-serif used for all menus, settings, and sidebar elements. It provides a professional, \"app-like\" feel that balances the density of the terminal.\n- **Terminal & Code (JetBrains Mono):** A high-performance monospaced font used for the terminal output, logs, and configuration editors. The increased line height (`1.6`) in `terminal-main` is intentional to improve readability during rapid-scrolling log outputs.\n- **Hierarchy:** Use `ui-label-bold` for sidebar category headers and status indicators to provide a distinct visual break from standard text.\n\n## Layout & Spacing\n\nThe layout follows a **Fixed-Sidebar Fluid-Content** model. The primary focus is the terminal viewport, which should maximize available screen real estate.\n\n- **Sidebar:** Fixed at `260px`. Houses the server list, saved snippets, and connection history.\n- **Terminal Viewport:** Utilizes a generous `1rem` internal padding to prevent text from touching the edges of the window, maintaining focus.\n- **Grids:** A 4px baseline grid ensures tight, technical alignment. UI density is high, reflecting the \"pro tool\" nature of the application.\n- **Mobile Adaptations:** On mobile devices, the sidebar collapses into a bottom-drawer navigation or a hamburger menu. Terminal text scales down to `terminal-sm` to prevent excessive horizontal scrolling.\n\n## Elevation & Depth\n\nVisual hierarchy is achieved through **Tonal Layering** and **Subtle Glassmorphism** rather than traditional shadows.\n\n- **Level 0 (Background):** Midnight Black (`#0D1117`). The base layer for the terminal.\n- **Level 1 (Surface):** Deep Charcoal (`#161B22`). Used for the sidebar and header areas.\n- **Level 2 (Overlays):** Modal dialogs and command palettes use a semi-transparent version of the surface color (85% opacity) with a `12px` backdrop blur. This creates a \"heads-up display\" effect that keeps the terminal context visible underneath.\n- **Borders:** Instead of shadows, use 1px solid borders in Slate Gray (`#30363D`) to define boundaries between the sidebar, terminal, and inspector panels.\n\n## Shapes\n\nTo maintain a \"technical tool\" feel, the design system utilizes **Soft-Sharp** geometry. \n\n- **Containers & Panels:** Use a base `4px` (0.25rem) radius. This provides just enough softness to look modern without appearing \"consumer-grade\" or playful.\n- **Interactive Elements:** Buttons and input fields follow the same `4px` rule.\n- **Terminal Elements:** Text selections and highlights within the terminal itself are strictly square (0px radius) to align with the character grid of the monospaced font.\n\n## Components\n\n### Buttons\n- **Primary:** Neon Green background with Black text. High contrast for critical actions.\n- **Secondary:** Ghost style (Electric Blue border and text, no fill).\n- **Destructive:** Solid Alert Red for \"Terminate\" or \"Delete\" actions.\n\n### Terminal Cells\n- Active lines should have a subtle background highlight.\n- The cursor is a solid Neon Green block, optionally blinking.\n\n### Server List (Sidebar)\n- **Active State:** A left-hand 2px border in Electric Blue.\n- **Status Indicators:** Small 8px circles. Pulsing Neon Green for \"Connected,\" solid Slate Gray for \"Offline,\" and Warning Orange for \"Latent.\"\n\n### Input Fields\n- Dark backgrounds with a 1px Slate Gray border. \n- Focus state: Border changes to Electric Blue with a subtle outer glow (0px blur, 1px spread).\n\n### Chips / Tags\n- Used for server labels (e.g., \"Production,\" \"AWS,\" \"Staging\"). Small, uppercase Inter font with a dark background and low-opacity colored borders matching the category.\n\n### Command Palette\n- A centered, floating glassmorphic input field. It should appear over the terminal with a backdrop blur to focus the user on the quick-search functionality.",
+    "colorVariant": "FIDELITY",
+    "overridePrimaryColor": "#00ff41",
+    "overrideSecondaryColor": "#007bff",
+    "spacingScale": 2,
+    "typography": {
+      "display-lg": {
+        "fontFamily": "Inter",
+        "fontSize": "32px",
+        "fontWeight": "700",
+        "lineHeight": "1.2",
+        "letterSpacing": "-0.02em"
+      },
+      "headline-md": {
+        "fontFamily": "Inter",
+        "fontSize": "20px",
+        "fontWeight": "600",
+        "lineHeight": "1.4"
+      },
+      "terminal-main": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "1.6"
+      },
+      "terminal-sm": {
+        "fontFamily": "JetBrains Mono",
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "lineHeight": "1.4"
+      },
+      "ui-body": {
+        "fontFamily": "Inter",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "lineHeight": "1.5"
+      },
+      "ui-label-bold": {
+        "fontFamily": "Inter",
+        "fontSize": "12px",
+        "fontWeight": "600",
+        "lineHeight": "1.2"
+      }
+    },
+    "spacing": {
+      "gutter": "12px",
+      "margin-lg": "24px",
+      "margin-md": "16px",
+      "margin-sm": "8px",
+      "sidebar-width": "260px",
+      "terminal-padding": "1rem",
+      "unit": "4px"
+    },
+    "headlineFontFamily": "Inter",
+    "bodyFontFamily": "Inter"
+  },
+  "screenInstances": [
+    {
+      "id": "073a0754ad594a868ff8e665654b18c8",
+      "sourceScreen": "projects/2946918035035581471/screens/073a0754ad594a868ff8e665654b18c8",
+      "x": 5320,
+      "width": 1280,
+      "height": 1023
+    },
+    {
+      "id": "0e584c56060b442f85df03f29ee6d6e3",
+      "sourceScreen": "projects/2946918035035581471/screens/0e584c56060b442f85df03f29ee6d6e3",
+      "x": 3976,
+      "width": 1280,
+      "height": 1045
+    },
+    {
+      "id": "2208a2a609314aba9f150b9b1925b71e",
+      "sourceScreen": "projects/2946918035035581471/screens/2208a2a609314aba9f150b9b1925b71e",
+      "x": 6664,
+      "width": 1280,
+      "height": 1024
+    },
+    {
+      "id": "8340cef99f634e888a55fbacd13905d5",
+      "sourceScreen": "projects/2946918035035581471/screens/8340cef99f634e888a55fbacd13905d5",
+      "x": 2632,
+      "width": 1280,
+      "height": 1023
+    },
+    {
+      "id": "85b987da657947e1a61351d8aec94894",
+      "sourceScreen": "projects/2946918035035581471/screens/85b987da657947e1a61351d8aec94894",
+      "x": 1288,
+      "width": 1280,
+      "height": 1023
+    },
+    {
+      "id": "assets_59cf26664c7c435db6ccd6e1b304ba9f",
+      "width": 960,
+      "height": 540,
+      "sourceAsset": "assets/59cf26664c7c435db6ccd6e1b304ba9f",
+      "type": "DESIGN_SYSTEM_INSTANCE"
+    },
+    {
+      "id": "ef6d5367814d4d01a8ded48f1d3fda2c",
+      "sourceScreen": "projects/2946918035035581471/screens/ef6d5367814d4d01a8ded48f1d3fda2c",
+      "x": 1024,
+      "width": 200,
+      "height": 200
+    }
+  ],
+  "metadata": {
+    "userRole": "READER"
+  }
+}

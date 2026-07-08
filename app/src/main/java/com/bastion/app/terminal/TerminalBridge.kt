@@ -49,6 +49,13 @@ class TerminalBridge(private val webView: WebView) {
         }
     }
 
+    fun sendText(text: String) {
+        val escaped = text.replace("\\", "\\\\").replace("'", "\\'")
+        webView.post {
+            webView.evaluateJavascript("term.paste('$escaped')", null)
+        }
+    }
+
     fun sendKey(key: String) {
         val js = when (key) {
             "ESC" -> "term.keyboard.sendKey('\\x1b')"

@@ -1,0 +1,464 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Terminax | Connections Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-dim": "#0c160a",
+                    "on-secondary-fixed": "#001a41",
+                    "inverse-surface": "#dae6d2",
+                    "on-tertiary": "#442b10",
+                    "inverse-primary": "#006e16",
+                    "secondary-fixed": "#d8e2ff",
+                    "primary-fixed": "#72ff70",
+                    "outline-variant": "#3b4b37",
+                    "error": "#ffb4ab",
+                    "on-error-container": "#ffdad6",
+                    "surface-container-highest": "#2d382a",
+                    "on-secondary": "#002e68",
+                    "surface-container-high": "#222d20",
+                    "on-error": "#690005",
+                    "surface-container": "#182216",
+                    "on-secondary-fixed-variant": "#004493",
+                    "inverse-on-surface": "#283326",
+                    "on-primary": "#003907",
+                    "surface-variant": "#2d382a",
+                    "on-secondary-container": "#00285b",
+                    "on-background": "#dae6d2",
+                    "on-tertiary-fixed": "#2c1701",
+                    "on-surface-variant": "#b9ccb2",
+                    "on-tertiary-container": "#7a5b3c",
+                    "tertiary-fixed-dim": "#e7bf99",
+                    "on-surface": "#dae6d2",
+                    "primary": "#ebffe2",
+                    "on-tertiary-fixed-variant": "#5d4124",
+                    "on-primary-container": "#007117",
+                    "secondary-fixed-dim": "#adc7ff",
+                    "background": "#0c160a",
+                    "secondary-container": "#4a8eff",
+                    "on-primary-fixed": "#002203",
+                    "secondary": "#adc7ff",
+                    "outline": "#84967e",
+                    "tertiary": "#fff8f4",
+                    "surface-bright": "#313c2e",
+                    "primary-container": "#00ff41",
+                    "surface-tint": "#00e639",
+                    "error-container": "#93000a",
+                    "on-primary-fixed-variant": "#00530e",
+                    "surface-container-low": "#141e12",
+                    "tertiary-container": "#ffd5ae",
+                    "tertiary-fixed": "#ffdcbd",
+                    "surface": "#0c160a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "terminal-padding": "1rem",
+                    "unit": "4px",
+                    "margin-sm": "8px",
+                    "gutter": "12px",
+                    "sidebar-width": "260px",
+                    "margin-md": "16px",
+                    "margin-lg": "24px"
+            },
+            "fontFamily": {
+                    "ui-label-bold": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "terminal-sm": ["JetBrains Mono"],
+                    "ui-body": ["Inter"],
+                    "terminal-main": ["JetBrains Mono"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "ui-label-bold": ["12px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "headline-md": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                    "terminal-sm": ["12px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                    "ui-body": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "terminal-main": ["14px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #0c160a;
+            color: #dae6d2;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-overlay {
+            background: rgba(22, 27, 34, 0.85);
+            backdrop-filter: blur(12px);
+        }
+        .status-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0c160a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #30363D;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b4b37;
+        }
+    </style>
+</head>
+<body class="overflow-hidden">
+<!-- SIDEBAR -->
+<aside class="flex flex-col h-full w-[260px] fixed left-0 top-0 bg-surface-container border-r border-outline-variant z-50">
+<div class="p-margin-md flex items-center gap-3">
+<img alt="Terminax Logo" class="w-8 h-8 rounded-sm" src="https://lh3.googleusercontent.com/aida/AP1WRLsgAZpJaQUJQ3mzmQInHU7fmpVt1YE91RHV-D03RcNTGOSd-z2n24HUvjRohxLagh073l2Xb4rY35m4yvaOyzru24sXec2Aq0mo0htQIJvTqXWnrcUIEXacBUw6wopzGqKVqoISCkQUZjSgs_OPx5_zI6P8fRoZLyeau7pyJ-QwbFS6_EkdNLQvxPqBBriDjXsVCeLRNGKAm1Apu9KTnYXYyxJ1QCJpTosznCN2kuvCfLWkAAbw-9vmsZQ">
+<div>
+<h1 class="font-display-lg text-headline-md font-bold text-primary-fixed-dim tracking-tight">Terminax</h1>
+<p class="font-ui-label-bold text-ui-label-bold text-on-surface-variant opacity-60">v1.2.4-stable</p>
+</div>
+</div>
+<div class="px-margin-md py-4">
+<button class="w-full bg-primary-container text-on-primary-fixed font-ui-label-bold text-ui-label-bold py-2 rounded-sm flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all duration-100">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                New Connection
+            </button>
+</div>
+<nav class="flex-1 px-2 space-y-1 overflow-y-auto">
+<a class="flex items-center gap-3 px-margin-md py-2 text-primary-fixed-dim border-l-2 border-secondary-container bg-surface-container-high font-ui-label-bold text-ui-label-bold transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dns">dns</span>
+                Connections
+            </a>
+<a class="flex items-center gap-3 px-margin-md py-2 text-on-surface-variant font-ui-body text-ui-body hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+                Terminal
+            </a>
+<a class="flex items-center gap-3 px-margin-md py-2 text-on-surface-variant font-ui-body text-ui-body hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="vpn_key">vpn_key</span>
+                SSH Keys
+            </a>
+<a class="flex items-center gap-3 px-margin-md py-2 text-on-surface-variant font-ui-body text-ui-body hover:bg-surface-container-highest transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+                Settings
+            </a>
+</nav>
+<div class="p-margin-md border-t border-outline-variant">
+<a class="flex items-center gap-3 px-2 py-2 text-on-surface-variant font-ui-body text-ui-body hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+                Help
+            </a>
+<a class="flex items-center gap-3 px-2 py-2 text-on-surface-variant font-ui-body text-ui-body hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="list_alt">list_alt</span>
+                Logs
+            </a>
+<div class="mt-4 flex items-center gap-3 px-2">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden border border-outline">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a software engineer with a neutral expression, wearing glasses and a dark hoodie, set against a dark, minimalist background with subtle green neon highlights to match the Terminax terminal aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAq8-mMosWMiDGd7GvkTLKsEP30HOua9uQ5ytjbTbJlv23OPhYNal64abUr8h2ROSn6rAXlhza1J7jnqdTYLZ7aJHyvS-k-yB3AMZ0IyHpjtEjq_MJ-xQxhjRzvOa44ozK9Gq-u5Zgu9885kH7DqIxgeFBYo9RRPiwHklH7Gw3Gn5oSGDehn0y2q7PsqstofD7q3VVeHX_J8R1JR8RVJ8NWZ09RWagZ2KylCy8Lm2yXJJqnXAxY1DEG">
+</div>
+<div class="flex-1 overflow-hidden">
+<p class="text-ui-label-bold font-ui-label-bold truncate">admin_root</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest">Superuser</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TOP NAVBAR -->
+<header class="flex justify-between items-center h-12 px-margin-md ml-[260px] bg-surface-container border-b border-outline-variant fixed top-0 left-0 right-0 z-40">
+<div class="flex items-center gap-6">
+<div class="flex gap-4">
+<a class="text-primary-fixed-dim border-b-2 border-primary-fixed-dim pb-1 font-ui-body text-ui-body" href="#">Sessions</a>
+<a class="text-on-surface-variant font-ui-body text-ui-body hover:text-primary-fixed transition-colors" href="#">Clusters</a>
+<a class="text-on-surface-variant font-ui-body text-ui-body hover:text-primary-fixed transition-colors" href="#">History</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">search</span>
+</span>
+<input class="bg-surface-container-low border border-outline-variant text-ui-body font-ui-body px-10 py-1 rounded-sm w-64 focus:outline-none focus:border-secondary-container transition-all" placeholder="Global search..." type="text">
+<span class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+<span class="text-[10px] border border-outline-variant px-1 rounded text-on-surface-variant">⌘K</span>
+</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-1 text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined" data-icon="command">comment</span>
+</button>
+<div class="h-4 w-[1px] bg-outline-variant mx-1"></div>
+<button class="bg-secondary-container/20 text-secondary-fixed-dim border border-secondary-container font-ui-label-bold text-ui-label-bold px-3 py-1 rounded-sm hover:bg-secondary-container/30 transition-all">
+                    Connect
+                </button>
+</div>
+</div>
+</header>
+<!-- MAIN CONTENT -->
+<main class="ml-[260px] pt-12 pb-8 h-screen overflow-y-auto bg-surface-dim">
+<div class="p-terminal-padding max-w-7xl mx-auto">
+<!-- Quick Connect Bar -->
+<section class="mb-margin-lg">
+<div class="glass-overlay p-margin-md rounded-lg border border-outline-variant">
+<h2 class="font-ui-label-bold text-ui-label-bold text-primary-fixed-dim uppercase tracking-widest mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">bolt</span> Quick Connect
+                    </h2>
+<div class="flex gap-3">
+<div class="flex-1 flex gap-px bg-outline-variant rounded-sm overflow-hidden border border-outline-variant">
+<div class="bg-surface-container-low flex items-center px-3 text-on-surface-variant">
+<span class="font-terminal-sm text-terminal-sm">ssh</span>
+</div>
+<input class="flex-1 bg-surface-container-low border-none focus:ring-0 text-terminal-main font-terminal-main px-4 py-2 placeholder:opacity-30" placeholder="user@host or IP address" type="text">
+<div class="bg-surface-container-low flex items-center px-3 border-l border-outline-variant">
+<span class="text-on-surface-variant text-[12px] font-terminal-sm">-p 22</span>
+</div>
+</div>
+<button class="bg-primary text-on-primary font-ui-label-bold text-ui-label-bold px-6 py-2 rounded-sm hover:brightness-110 shadow-[0_0_15px_rgba(114,255,112,0.2)]">
+                            Launch Session
+                        </button>
+</div>
+</div>
+</section>
+<!-- Connections Table -->
+<section class="bg-surface-container-low rounded-lg border border-outline-variant overflow-hidden">
+<div class="px-margin-md py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-high/50">
+<h3 class="font-headline-md text-headline-md text-on-surface">Saved Connections</h3>
+<div class="flex gap-2">
+<button class="p-1.5 rounded bg-surface-container-highest border border-outline-variant hover:border-primary-fixed-dim transition-colors group">
+<span class="material-symbols-outlined text-[18px] group-hover:text-primary-fixed-dim">filter_list</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container-highest border border-outline-variant hover:border-primary-fixed-dim transition-colors group">
+<span class="material-symbols-outlined text-[18px] group-hover:text-primary-fixed-dim">sort</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full border-collapse">
+<thead>
+<tr class="text-left border-b border-outline-variant bg-surface-container">
+<th class="px-margin-md py-3 font-ui-label-bold text-ui-label-bold text-on-surface-variant">Status</th>
+<th class="px-margin-md py-3 font-ui-label-bold text-ui-label-bold text-on-surface-variant">Server Name</th>
+<th class="px-margin-md py-3 font-ui-label-bold text-ui-label-bold text-on-surface-variant">IP Address</th>
+<th class="px-margin-md py-3 font-ui-label-bold text-ui-label-bold text-on-surface-variant">Last Accessed</th>
+<th class="px-margin-md py-3 font-ui-label-bold text-ui-label-bold text-on-surface-variant">Tags</th>
+<th class="px-margin-md py-3 font-ui-label-bold text-ui-label-bold text-on-surface-variant text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-ui-body text-ui-body">
+<!-- Entry 1: Online -->
+<tr class="border-b border-outline-variant/30 hover:bg-surface-container-highest/30 transition-colors cursor-pointer group">
+<td class="px-margin-md py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary-container status-pulse shadow-[0_0_8px_#00ff41]"></div>
+<span class="text-primary-fixed-dim text-[12px] font-medium">Online</span>
+</div>
+</td>
+<td class="px-margin-md py-4">
+<span class="font-terminal-main text-on-surface font-semibold">production-web-01</span>
+</td>
+<td class="px-margin-md py-4 text-on-surface-variant font-terminal-sm">192.168.1.105</td>
+<td class="px-margin-md py-4 text-on-surface-variant text-[12px]">2 mins ago</td>
+<td class="px-margin-md py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-primary-container/10 text-primary-fixed-dim border border-primary-container/20">Prod</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-surface-container-highest text-on-surface-variant border border-outline-variant ml-1">AWS</span>
+</td>
+<td class="px-margin-md py-4 text-right">
+<button class="text-primary-fixed-dim border border-primary-fixed-dim/30 px-4 py-1 rounded-sm hover:bg-primary-fixed-dim hover:text-on-primary-fixed transition-all active:scale-95 font-ui-label-bold text-ui-label-bold">
+                                        Connect
+                                    </button>
+</td>
+</tr>
+<!-- Entry 2: Connecting -->
+<tr class="border-b border-outline-variant/30 hover:bg-surface-container-highest/30 transition-colors cursor-pointer">
+<td class="px-margin-md py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-tertiary-container status-pulse"></div>
+<span class="text-tertiary-fixed-dim text-[12px] font-medium">Connecting</span>
+</div>
+</td>
+<td class="px-margin-md py-4">
+<span class="font-terminal-main text-on-surface font-semibold">staging-api-east</span>
+</td>
+<td class="px-margin-md py-4 text-on-surface-variant font-terminal-sm">10.0.0.42</td>
+<td class="px-margin-md py-4 text-on-surface-variant text-[12px]">1 hour ago</td>
+<td class="px-margin-md py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-tertiary-container/10 text-tertiary-fixed-dim border border-tertiary-container/20">Staging</span>
+</td>
+<td class="px-margin-md py-4 text-right">
+<button class="text-on-surface-variant border border-outline-variant px-4 py-1 rounded-sm hover:bg-surface-container-highest transition-all font-ui-label-bold text-ui-label-bold" disabled="">
+                                        Connecting...
+                                    </button>
+</td>
+</tr>
+<!-- Entry 3: Offline -->
+<tr class="border-b border-outline-variant/30 hover:bg-surface-container-highest/30 transition-colors cursor-pointer">
+<td class="px-margin-md py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-outline"></div>
+<span class="text-on-surface-variant text-[12px] font-medium">Offline</span>
+</div>
+</td>
+<td class="px-margin-md py-4">
+<span class="font-terminal-main text-on-surface font-semibold">dev-db-local</span>
+</td>
+<td class="px-margin-md py-4 text-on-surface-variant font-terminal-sm">127.0.0.1</td>
+<td class="px-margin-md py-4 text-on-surface-variant text-[12px]">Yesterday</td>
+<td class="px-margin-md py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-secondary-container/10 text-secondary-fixed-dim border border-secondary-container/20">Dev</span>
+</td>
+<td class="px-margin-md py-4 text-right">
+<button class="text-on-surface-variant border border-outline-variant px-4 py-1 rounded-sm hover:text-on-surface hover:bg-surface-container-highest transition-all active:scale-95 font-ui-label-bold text-ui-label-bold">
+                                        Connect
+                                    </button>
+</td>
+</tr>
+<!-- Entry 4: Online -->
+<tr class="border-b border-outline-variant/30 hover:bg-surface-container-highest/30 transition-colors cursor-pointer">
+<td class="px-margin-md py-4">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 rounded-full bg-primary-container status-pulse shadow-[0_0_8px_#00ff41]"></div>
+<span class="text-primary-fixed-dim text-[12px] font-medium">Online</span>
+</div>
+</td>
+<td class="px-margin-md py-4">
+<span class="font-terminal-main text-on-surface font-semibold">monitoring-grafana-01</span>
+</td>
+<td class="px-margin-md py-4 text-on-surface-variant font-terminal-sm">45.22.12.88</td>
+<td class="px-margin-md py-4 text-on-surface-variant text-[12px]">3 days ago</td>
+<td class="px-margin-md py-4">
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-primary-container/10 text-primary-fixed-dim border border-primary-container/20">Prod</span>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-surface-container-highest text-on-surface-variant border border-outline-variant ml-1">Tools</span>
+</td>
+<td class="px-margin-md py-4 text-right">
+<button class="text-primary-fixed-dim border border-primary-fixed-dim/30 px-4 py-1 rounded-sm hover:bg-primary-fixed-dim hover:text-on-primary-fixed transition-all active:scale-95 font-ui-label-bold text-ui-label-bold">
+                                        Connect
+                                    </button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination/Status Footer -->
+<div class="px-margin-md py-3 bg-surface-container text-terminal-sm font-terminal-sm text-on-surface-variant flex justify-between items-center border-t border-outline-variant">
+<div>Showing 4 of 28 stored connections</div>
+<div class="flex gap-4">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span> 2 active sessions</span>
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-error"></span> 0 alerts</span>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- SYSTEM FOOTER -->
+<footer class="fixed bottom-0 left-0 right-0 h-8 flex items-center justify-between px-terminal-padding z-50 ml-[260px] bg-surface-container-lowest border-t border-outline-variant">
+<div class="flex items-center gap-4 font-terminal-sm text-terminal-sm text-on-surface-variant">
+<span class="text-primary-fixed-dim">© 2024 Terminax Systems</span>
+<span class="opacity-50">|</span>
+<span>Connected to: production-web-01 (1ms latency)</span>
+</div>
+<div class="flex items-center gap-4 font-terminal-sm text-terminal-sm">
+<a class="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Documentation</a>
+<a class="text-on-surface-variant hover:text-on-surface transition-colors" href="#">Privacy Policy</a>
+<div class="flex items-center gap-1.5 text-primary-fixed-dim">
+<span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+<span>System Status</span>
+</div>
+</div>
+</footer>
+<!-- Command Palette Overlay (Hidden by default) -->
+<div class="fixed inset-0 z-[60] glass-overlay flex items-start justify-center pt-24 hidden" id="command-palette">
+<div class="w-full max-w-xl bg-surface-container-high rounded-lg border border-outline shadow-2xl overflow-hidden scale-95 transition-transform duration-200">
+<div class="p-4 border-b border-outline-variant flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-fixed-dim">terminal</span>
+<input class="bg-transparent border-none focus:ring-0 flex-1 text-headline-md font-headline-md text-on-surface placeholder:text-on-surface-variant/30" placeholder="Search commands, servers, or keys..." type="text">
+<span class="text-[10px] border border-outline-variant px-1.5 py-0.5 rounded text-on-surface-variant">ESC</span>
+</div>
+<div class="p-2 max-h-96 overflow-y-auto">
+<div class="text-[10px] text-on-surface-variant uppercase tracking-widest px-3 py-2">Quick Actions</div>
+<div class="px-3 py-2 flex items-center gap-3 rounded hover:bg-surface-container-highest cursor-pointer group">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary-fixed-dim">add_box</span>
+<span class="text-ui-body font-ui-body">Create new connection profile</span>
+</div>
+<div class="px-3 py-2 flex items-center gap-3 rounded hover:bg-surface-container-highest cursor-pointer group">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary-fixed-dim">key</span>
+<span class="text-ui-body font-ui-body">Manage SSH keys</span>
+</div>
+<div class="px-3 py-2 flex items-center gap-3 rounded hover:bg-surface-container-highest cursor-pointer group">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary-fixed-dim">history</span>
+<span class="text-ui-body font-ui-body">View command history</span>
+</div>
+</div>
+</div>
+</div>
+<script>
+        // Micro-interactions
+        const commandPalette = document.getElementById('command-palette');
+        
+        document.addEventListener('keydown', (e) => {
+            // Command + K or Ctrl + K for command palette
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                commandPalette.classList.toggle('hidden');
+                if (!commandPalette.classList.contains('hidden')) {
+                    commandPalette.querySelector('input').focus();
+                }
+            }
+            if (e.key === 'Escape') {
+                commandPalette.classList.add('hidden');
+            }
+        });
+
+        // Toggle connection states mock
+        const connectButtons = document.querySelectorAll('table button');
+        connectButtons.forEach(btn => {
+            if (btn.innerText === 'Connect') {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const row = this.closest('tr');
+                    const statusDot = row.querySelector('.w-2.h-2');
+                    const statusText = row.querySelector('span.text-[12px]');
+                    
+                    this.innerText = 'Connecting...';
+                    this.classList.replace('text-primary-fixed-dim', 'text-on-surface-variant');
+                    this.classList.remove('hover:bg-primary-fixed-dim');
+                    
+                    statusDot.classList.replace('bg-primary-container', 'bg-tertiary-container');
+                    statusText.innerText = 'Connecting';
+                    statusText.classList.replace('text-primary-fixed-dim', 'text-tertiary-fixed-dim');
+                    
+                    setTimeout(() => {
+                        this.innerText = 'Disconnect';
+                        this.classList.replace('border-primary-fixed-dim/30', 'border-error/30');
+                        this.classList.replace('text-on-surface-variant', 'text-error');
+                        statusDot.classList.replace('bg-tertiary-container', 'bg-primary-container');
+                        statusText.innerText = 'Active';
+                        statusText.classList.replace('text-tertiary-fixed-dim', 'text-primary-fixed-dim');
+                    }, 1500);
+                });
+            }
+        });
+    </script>
+</body></html>

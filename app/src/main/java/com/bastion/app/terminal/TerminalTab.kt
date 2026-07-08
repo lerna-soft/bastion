@@ -9,7 +9,11 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,28 +23,29 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,10 +59,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -65,6 +71,24 @@ import com.bastion.app.logging.RemoteLogger
 import com.bastion.app.ssh.ConnectionError
 import com.bastion.app.ssh.SessionState
 import com.bastion.app.ssh.SshSession
+import com.bastion.app.ui.theme.StitchBackground
+import com.bastion.app.ui.theme.StitchError
+import com.bastion.app.ui.theme.StitchOnError
+import com.bastion.app.ui.theme.StitchOnPrimaryFixed
+import com.bastion.app.ui.theme.StitchOnSurface
+import com.bastion.app.ui.theme.StitchOnSurfaceVariant
+import com.bastion.app.ui.theme.StitchOutline
+import com.bastion.app.ui.theme.StitchOutlineVariant
+import com.bastion.app.ui.theme.StitchPrimaryContainer
+import com.bastion.app.ui.theme.StitchPrimaryFixedDim
+import com.bastion.app.ui.theme.StitchSecondary
+import com.bastion.app.ui.theme.StitchSecondaryContainer
+import com.bastion.app.ui.theme.StitchSurfaceContainer
+import com.bastion.app.ui.theme.StitchSurfaceContainerHigh
+import com.bastion.app.ui.theme.StitchSurfaceContainerHighest
+import com.bastion.app.ui.theme.StitchSurfaceContainerLow
+import com.bastion.app.ui.theme.StitchSurfaceContainerLowest
+import com.bastion.app.ui.theme.StitchTertiaryContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,16 +96,16 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private data class ThemeOption(val id: String, val label: String, val color: ComposeColor)
+private data class ThemeOption(val id: String, val label: String, val color: Color)
 
 private val themes = listOf(
-    ThemeOption("stitch", "Stitch", ComposeColor(0xFF121414)),
-    ThemeOption("default", "Oscuro", ComposeColor(0xFF1E1E1E)),
-    ThemeOption("light", "Claro", ComposeColor(0xFFFFFFFF)),
-    ThemeOption("monokai", "Monokai", ComposeColor(0xFF272822)),
-    ThemeOption("solarized-dark", "Solarized", ComposeColor(0xFF002B36)),
-    ThemeOption("dracula", "Dracula", ComposeColor(0xFF282A36)),
-    ThemeOption("nord", "Nord", ComposeColor(0xFF2E3440))
+    ThemeOption("stitch", "Stitch", StitchBackground),
+    ThemeOption("default", "Oscuro", Color(0xFF1E1E1E)),
+    ThemeOption("light", "Claro", Color.White),
+    ThemeOption("monokai", "Monokai", Color(0xFF272822)),
+    ThemeOption("solarized-dark", "Solarized", Color(0xFF002B36)),
+    ThemeOption("dracula", "Dracula", Color(0xFF282A36)),
+    ThemeOption("nord", "Nord", Color(0xFF2E3440))
 )
 
 private val terminalScopes = mutableMapOf<SshSession, CoroutineScope>()
@@ -96,13 +120,15 @@ fun TerminalTab(
     username: String = "",
     authTypeLabel: String = "",
     title: String = "",
+    showStats: Boolean = false,
+    onToggleStats: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val state by session.state.collectAsState()
     val error by session.error.collectAsState()
     val context = LocalContext.current
     var showThemeDialog by remember { mutableStateOf(false) }
-    var showInfo by remember { mutableStateOf(false) }
+    var showCommandPalette by remember { mutableStateOf(false) }
 
     val bridge = remember { mutableStateOf<TerminalBridge?>(null) }
 
@@ -149,69 +175,78 @@ fun TerminalTab(
         onDispose { }
     }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        if (state == SessionState.SHELL_ACTIVE || state == SessionState.CONNECTING || state == SessionState.AUTHENTICATING) {
-            ServerInfoPanel(
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            ServerInfoBar(
                 title = title,
                 hostname = hostname,
                 port = port,
                 username = username,
                 authType = authTypeLabel,
-                state = state,
-                expanded = showInfo,
-                onToggle = { showInfo = !showInfo }
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .clickable {
-                    webView.requestFocus()
-                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                    imm.showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT)
-                }
-        ) {
-            AndroidView(
-                factory = { webView },
-                modifier = Modifier.fillMaxSize()
+                state = state
             )
 
-            when (state) {
-                SessionState.IDLE,
-                SessionState.CONNECTING,
-                SessionState.AUTHENTICATING -> {
-                    ConnectingOverlay(state)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(StitchBackground)
+                    .clickable {
+                        webView.requestFocus()
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                        imm.showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT)
+                    }
+            ) {
+                AndroidView(
+                    factory = { webView },
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                when (state) {
+                    SessionState.IDLE,
+                    SessionState.CONNECTING,
+                    SessionState.AUTHENTICATING -> {
+                        ConnectingOverlay(state)
+                    }
+                    SessionState.ERROR -> {
+                        ErrorOverlay(error = error, context = context)
+                    }
+                    SessionState.CLOSING,
+                    SessionState.CLOSED -> {
+                        ClosedOverlay()
+                    }
+                    SessionState.SHELL_ACTIVE -> {
+                        ThemeButton(
+                            onClick = { showThemeDialog = true },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                        )
+                    }
                 }
-                SessionState.ERROR -> {
-                    ErrorOverlay(error = error, context = context)
-                }
-                SessionState.CLOSING,
-                SessionState.CLOSED -> {
-                    ClosedOverlay()
-                }
-                SessionState.SHELL_ACTIVE -> {
-                    ThemeButton(
-                        onClick = { showThemeDialog = true },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                    )
-                }
+            }
+
+            if (state == SessionState.SHELL_ACTIVE) {
+                SpecialKeysBar(
+                    onEsc = { bridge.value?.sendKey("ESC") },
+                    onTab = { bridge.value?.sendKey("TAB") },
+                    onCtrl = { bridge.value?.sendKey("CTRL") },
+                    onAlt = { bridge.value?.sendKey("ALT") },
+                    onUp = { bridge.value?.sendKey("UP") },
+                    onDown = { bridge.value?.sendKey("DOWN") },
+                    onLeft = { bridge.value?.sendKey("LEFT") },
+                    onRight = { bridge.value?.sendKey("RIGHT") }
+                )
             }
         }
 
-        if (state == SessionState.SHELL_ACTIVE) {
-            SpecialKeysBar(
-                onEsc = { bridge.value?.sendKey("ESC") },
-                onTab = { bridge.value?.sendKey("TAB") },
-                onCtrl = { bridge.value?.sendKey("CTRL") },
-                onAlt = { bridge.value?.sendKey("ALT") },
-                onUp = { bridge.value?.sendKey("UP") },
-                onDown = { bridge.value?.sendKey("DOWN") },
-                onLeft = { bridge.value?.sendKey("LEFT") },
-                onRight = { bridge.value?.sendKey("RIGHT") }
+        if (showCommandPalette) {
+            CommandPalette(
+                onDismiss = { showCommandPalette = false },
+                onCommand = { cmd ->
+                    bridge.value?.sendText(cmd)
+                    showCommandPalette = false
+                }
             )
         }
     }
@@ -233,115 +268,410 @@ fun cleanupTerminalSession(session: SshSession) {
 }
 
 @Composable
-private fun ServerInfoPanel(
+private fun ServerInfoBar(
     title: String,
     hostname: String,
     port: Int,
     username: String,
     authType: String,
-    state: SessionState,
-    expanded: Boolean,
-    onToggle: () -> Unit
+    state: SessionState
 ) {
-    val bgColor = when (state) {
-        SessionState.SHELL_ACTIVE -> ComposeColor(0xFF0D2818)
-        SessionState.ERROR -> ComposeColor(0xFF2D0A0A)
-        else -> ComposeColor(0xFF1A1A2E)
-    }
-    val statusColor = when (state) {
-        SessionState.SHELL_ACTIVE -> ComposeColor(0xFF4CAF50)
-        SessionState.ERROR -> ComposeColor(0xFFFF5252)
-        else -> ComposeColor(0xFFFFC107)
+    val isConnected = state == SessionState.SHELL_ACTIVE
+    val indicatorColor = when {
+        isConnected -> StitchPrimaryContainer
+        state == SessionState.ERROR -> StitchError
+        state == SessionState.CONNECTING || state == SessionState.AUTHENTICATING -> StitchTertiaryContainer
+        else -> StitchOutline
     }
     val statusText = when (state) {
         SessionState.SHELL_ACTIVE -> "Connected"
         SessionState.CONNECTING -> "Connecting..."
         SessionState.AUTHENTICATING -> "Authenticating..."
         SessionState.ERROR -> "Error"
+        SessionState.CLOSING -> "Closing..."
+        SessionState.CLOSED -> "Disconnected"
         else -> "Unknown"
     }
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(bgColor)
-            .clickable(onClick = onToggle)
-            .animateContentSize()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .background(StitchSurfaceContainerLow)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(indicatorColor)
+                .then(
+                    if (isConnected) Modifier
+                    else Modifier
+                )
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = title.ifBlank { hostname },
+            color = StitchPrimaryFixedDim,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = statusText,
+            color = indicatorColor,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace
+        )
+    }
+}
+
+@Composable
+fun SystemStatsPanel(
+    hostname: String,
+    isConnected: Boolean,
+    onClose: () -> Unit
+) {
+    val panelWidth by animateDpAsState(
+        targetValue = 288.dp,
+        animationSpec = tween(300),
+        label = "statsWidth"
+    )
+
+    Column(
+        modifier = Modifier
+            .width(panelWidth)
+            .fillMaxHeight()
+            .background(StitchSurfaceContainer)
+            .padding(12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = null,
-                    tint = statusColor,
-                    modifier = Modifier.size(16.dp)
-                )
+            Column {
                 Text(
-                    title.ifBlank { hostname },
-                    color = ComposeColor(0xFFE2E2E2),
-                    fontSize = 13.sp,
+                    text = "System Stats",
+                    color = StitchOnSurface,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
                 )
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(statusColor)
-                )
                 Text(
-                    statusText,
-                    color = statusColor,
-                    fontSize = 11.sp,
+                    text = hostname.ifBlank { "—" },
+                    color = StitchOutline,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable(onClick = onClose),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = StitchOnSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        if (isConnected) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                MetricBar(
+                    label = "CPU Load",
+                    value = "12.4%",
+                    progress = 0.124f,
+                    color = StitchPrimaryContainer
+                )
+                MetricBar(
+                    label = "Memory",
+                    value = "4.2 / 16 GB",
+                    progress = 0.26f,
+                    color = StitchPrimaryContainer
+                )
+                MetricBar(
+                    label = "Disk usage",
+                    value = "412 / 512 GB",
+                    progress = 0.80f,
+                    color = StitchTertiaryContainer
+                )
+
+                Spacer(Modifier.height(8.dp))
+                HorizontalDividerStitch(color = StitchOutlineVariant)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "\u2193",
+                                color = StitchPrimaryContainer,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Downlink",
+                                color = StitchOnSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Text(
+                            text = "1.2 MB/s",
+                            color = StitchOnSurface,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "\u2191",
+                                color = StitchSecondaryContainer,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Uplink",
+                                color = StitchOnSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Text(
+                            text = "45 KB/s",
+                            color = StitchOnSurface,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                HorizontalDividerStitch(color = StitchOutlineVariant)
+
+                Text(
+                    text = "Connection Logs",
+                    color = StitchOutline,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LogEntry("14:42:01", "Auth success (key)")
+                    LogEntry("14:40:12", "SSH Request handshake")
+                    LogEntry("14:40:11", "Tunnel established")
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No active connection",
+                    color = StitchOnSurfaceVariant,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace
                 )
             }
-            Icon(
-                if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                tint = ComposeColor(0xFF8E9192),
-                modifier = Modifier.size(18.dp)
-            )
-        }
-
-        if (expanded) {
-            Spacer(Modifier.height(8.dp))
-            HorizontalDivider(color = ComposeColor(0xFF1E2020), thickness = 1.dp)
-            Spacer(Modifier.height(8.dp))
-
-            InfoRow("Host", hostname)
-            InfoRow("Port", port.toString())
-            InfoRow("User", username)
-            InfoRow("Auth", authType)
-            InfoRow("State", statusText)
         }
     }
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+private fun MetricBar(
+    label: String,
+    value: String,
+    progress: Float,
+    color: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(
+                text = label,
+                color = StitchOnSurface,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = value,
+                color = StitchPrimaryFixedDim,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(StitchSurfaceContainerHighest)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(color)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HorizontalDividerStitch(color: Color) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(color)
+    )
+}
+
+@Composable
+private fun LogEntry(time: String, event: String) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            label,
-            color = ComposeColor(0xFF8E9192),
+            text = time,
+            color = StitchOutline,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )
         Text(
-            value,
-            color = ComposeColor(0xFFE2E2E2),
+            text = event,
+            color = StitchOnSurfaceVariant,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
+        )
+    }
+}
+
+@Composable
+private fun CommandPalette(
+    onDismiss: () -> Unit,
+    onCommand: (String) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.4f))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(top = 120.dp)
+                .widthIn(max = 400.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(StitchSurfaceContainerHigh)
+                .border(1.dp, StitchOutline, RoundedCornerShape(8.dp))
+                .clickable(enabled = false, onClick = {})
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Terminal,
+                    contentDescription = null,
+                    tint = StitchPrimaryFixedDim,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Type a command or search...",
+                    color = StitchOnSurfaceVariant.copy(alpha = 0.5f),
+                    fontSize = 14.sp
+                )
+            }
+
+            HorizontalDividerStitch(color = StitchOutlineVariant)
+
+            Column(
+                modifier = Modifier.padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "Quick Actions",
+                    color = StitchOutline,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                )
+                CommandItem("Connect to production-db-replica", "\u2318 1", onClick = {
+                    onCommand("ssh deploy@production-db-replica")
+                })
+                CommandItem("Open Settings", "\u2318 ,", onClick = {
+                    onCommand("settings")
+                })
+                CommandItem("Generate SSH Key", "\u2318 G", onClick = {
+                    onCommand("ssh-keygen")
+                })
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommandItem(
+    label: String,
+    shortcut: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            color = StitchOnSurfaceVariant,
+            fontSize = 13.sp
+        )
+        Text(
+            text = shortcut,
+            color = StitchOutline,
+            fontSize = 10.sp
         )
     }
 }
@@ -360,14 +690,15 @@ private fun SpecialKeysBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(ComposeColor(0xFF1E2020))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .background(StitchSurfaceContainerLow)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        SpecialKeyButton("ESC", onEsc)
-        SpecialKeyButton("TAB", onTab)
-        SpecialKeyButton("CTRL", onCtrl)
-        SpecialKeyButton("ALT", onAlt)
+        SpecialKeyButton("Esc", onEsc)
+        SpecialKeyButton("Tab", onTab)
+        SpecialKeyButton("Ctrl", onCtrl)
+        SpecialKeyButton("Alt", onAlt)
+        Spacer(Modifier.weight(1f))
         SpecialKeyButton("\u25B2", onUp)
         SpecialKeyButton("\u25BC", onDown)
         SpecialKeyButton("\u25C0", onLeft)
@@ -377,17 +708,21 @@ private fun SpecialKeysBar(
 
 @Composable
 private fun SpecialKeyButton(label: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.height(32.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xFF282A2B),
-            contentColor = ComposeColor(0xFFE2E2E2)
-        ),
-        shape = RoundedCornerShape(6.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp)
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(StitchSurfaceContainerHighest)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(
+            text = label,
+            color = StitchOnSurfaceVariant,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            fontFamily = FontFamily.Monospace
+        )
     }
 }
 
@@ -401,7 +736,7 @@ private fun createWebView(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
-        setBackgroundColor(android.graphics.Color.parseColor("#121414"))
+        setBackgroundColor(android.graphics.Color.parseColor("#0c160a"))
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = false
         settings.allowContentAccess = false
@@ -439,17 +774,17 @@ private fun createWebView(
 private fun ThemeButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(ComposeColor(0x66000000))
+            .size(28.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(StitchSurfaceContainerHighest.copy(alpha = 0.8f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             Icons.Default.Settings,
-            contentDescription = "Temas",
-            tint = ComposeColor(0xFFCCCCCC),
-            modifier = Modifier.size(20.dp)
+            contentDescription = "Themes",
+            tint = StitchOnSurfaceVariant,
+            modifier = Modifier.size(14.dp)
         )
     }
 }
@@ -462,7 +797,7 @@ private fun ThemePickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tema de terminal") },
+        title = { Text("Terminal Theme", color = StitchOnSurface) },
         text = {
             Column {
                 themes.forEach { theme ->
@@ -476,17 +811,18 @@ private fun ThemePickerDialog(
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
-                                .clip(CircleShape)
+                                .clip(RoundedCornerShape(4.dp))
+                                .border(1.dp, StitchOutlineVariant, RoundedCornerShape(4.dp))
                                 .background(theme.color)
                         )
                         Spacer(Modifier.width(12.dp))
-                        Text(text = theme.label)
+                        Text(text = theme.label, color = StitchOnSurface, fontSize = 14.sp)
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Cancelar") }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = StitchPrimaryContainer) }
         }
     )
 }
@@ -496,20 +832,24 @@ private fun ConnectingOverlay(state: SessionState) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ComposeColor(0xCC0F1417)),
+            .background(StitchBackground.copy(alpha = 0.85f)),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = ComposeColor(0xFF75D1FF))
-            Spacer(Modifier.height(16.dp))
+            CircularProgressIndicator(
+                color = StitchPrimaryContainer,
+                strokeWidth = 2.dp
+            )
+            Spacer(Modifier.height(12.dp))
             Text(
                 text = when (state) {
-                    SessionState.CONNECTING -> "Conectando..."
-                    SessionState.AUTHENTICATING -> "Autenticando..."
-                    else -> "Iniciando..."
+                    SessionState.CONNECTING -> "Connecting..."
+                    SessionState.AUTHENTICATING -> "Authenticating..."
+                    else -> "Starting..."
                 },
-                color = ComposeColor(0xFFE2E2E2),
-                fontSize = 16.sp
+                color = StitchPrimaryFixedDim,
+                fontSize = 14.sp,
+                fontFamily = FontFamily.Monospace
             )
         }
     }
@@ -520,59 +860,54 @@ private fun ErrorOverlay(error: ConnectionError?, context: Context) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ComposeColor(0xCC0F1417)),
+            .background(StitchBackground.copy(alpha = 0.85f)),
         contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
                 Icons.Default.Warning,
                 contentDescription = null,
-                tint = ComposeColor(0xFFFFB4AB),
-                modifier = Modifier.size(48.dp)
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = "Error de conexi\u00F3n",
-                color = ComposeColor(0xFFFFB4AB),
-                fontSize = 18.sp
+                tint = StitchError,
+                modifier = Modifier.size(40.dp)
             )
             Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Connection Error",
+                color = StitchError,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(12.dp))
 
             if (error != null) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .verticalScroll(rememberScrollState())
-                        .background(ComposeColor(0xFF1E2020), RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(StitchSurfaceContainer)
                         .padding(12.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     Text(
-                        text = "Fase: ${error.phase}",
-                        color = ComposeColor(0xFFFFB4AB),
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
                         text = error.message,
-                        color = ComposeColor(0xFFE2E2E2),
+                        color = StitchOnSurface,
                         fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = error.exceptionText,
-                        color = ComposeColor(0xFFC4C7C7),
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = 12.sp
-                    )
+                    if (error.exceptionText.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = error.exceptionText,
+                            color = StitchOnSurfaceVariant,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -584,23 +919,20 @@ private fun ErrorOverlay(error: ConnectionError?, context: Context) {
                         clipboard.setPrimaryClip(clip)
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = ComposeColor(0xFF282A2B)
+                        containerColor = StitchSurfaceContainerHigh,
+                        contentColor = StitchOnSurface
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    Icon(
-                        Icons.Default.ContentCopy,
-                        contentDescription = null,
-                        tint = ComposeColor(0xFFE2E2E2),
-                        modifier = Modifier.size(18.dp)
-                    )
+                    Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Copiar error", color = ComposeColor(0xFFE2E2E2))
+                    Text("Copy Error", fontSize = 13.sp)
                 }
             } else {
                 Text(
-                    text = "Error desconocido (sin detalles)",
-                    color = ComposeColor(0xFFC4C7C7),
+                    text = "Unknown error (no details)",
+                    color = StitchOnSurfaceVariant,
                     fontSize = 14.sp
                 )
             }
@@ -613,13 +945,14 @@ private fun ClosedOverlay() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ComposeColor(0xCC0F1417)),
+            .background(StitchBackground.copy(alpha = 0.85f)),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Desconectado",
-            color = ComposeColor(0xFF8E9192),
-            fontSize = 16.sp
+            text = "Disconnected",
+            color = StitchOnSurfaceVariant,
+            fontSize = 14.sp,
+            fontFamily = FontFamily.Monospace
         )
     }
 }

@@ -13,8 +13,8 @@ android {
         applicationId = "com.bastion.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "1.1.6"
+        versionCode = 19
+        versionName = "1.1.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

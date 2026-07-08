@@ -63,7 +63,10 @@ import com.bastion.app.data.VaultRepository
 import com.bastion.app.ui.theme.StitchOnSurface
 import com.bastion.app.ui.theme.StitchOnSurfaceVariant
 import com.bastion.app.ui.theme.StitchOutlineVariant
+import com.bastion.app.ui.theme.StitchOnPrimaryContainer
 import com.bastion.app.ui.theme.StitchPrimary
+import com.bastion.app.ui.theme.StitchPrimaryContainer
+import com.bastion.app.ui.theme.StitchPrimaryFixedDim
 import com.bastion.app.ui.theme.StitchSecondary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -223,7 +226,7 @@ private fun HeaderSection(
             )
             Text(
                 text = "SSH KEYS",
-                color = StitchPrimary,
+                color = StitchPrimaryFixedDim,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 1.sp
@@ -266,7 +269,7 @@ private fun HeaderSection(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(StitchPrimary)
+                    .background(StitchPrimaryContainer)
                     .clickable(onClick = onAddKey)
                     .padding(horizontal = 20.dp, vertical = 10.dp)
             ) {
@@ -277,12 +280,12 @@ private fun HeaderSection(
                     Icon(
                         imageVector = Icons.Filled.Add,
                         contentDescription = null,
-                        tint = Color(0xFF003548),
+                        tint = StitchOnPrimaryContainer,
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
                         text = "Add SSH Key",
-                        color = Color(0xFF003548),
+                        color = StitchOnPrimaryContainer,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -478,12 +481,12 @@ private fun StatsRow(keyCount: Int, activeCount: Int) {
             icon = Icons.Filled.VpnKey, modifier = Modifier.weight(1f)
         )
         StatCard(
-            title = "ACTIVE KEYS", value = "$activeCount Active", valueColor = StitchPrimary,
+            title = "ACTIVE KEYS", value = "$activeCount Active", valueColor = StitchPrimaryFixedDim,
             subtitle = "Keys currently in use for SSH connections.",
             icon = Icons.Filled.VerifiedUser, modifier = Modifier.weight(1f)
         )
         StatCard(
-            title = "KEY USAGE LOG", value = "$keyCount Total", valueColor = StitchPrimary,
+            title = "KEY USAGE LOG", value = "$keyCount Total", valueColor = StitchPrimaryFixedDim,
             subtitle = "Manage your SSH key infrastructure.",
             icon = Icons.Filled.History, modifier = Modifier.weight(1f),
             linkText = "View Audit History",
@@ -522,9 +525,9 @@ private fun StatCard(
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.clickable(onClick = onLinkClick)) {
-                Text(linkText, color = StitchPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(linkText, color = StitchPrimaryContainer, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null,
-                    tint = StitchPrimary, modifier = Modifier.size(14.dp))
+                    tint = StitchPrimaryContainer, modifier = Modifier.size(14.dp))
             }
         }
     }

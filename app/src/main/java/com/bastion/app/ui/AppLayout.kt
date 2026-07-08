@@ -3,11 +3,14 @@ package com.bastion.app.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.widget.Toast
 import android.webkit.WebView
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,11 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
@@ -80,17 +79,24 @@ import com.bastion.app.logging.RemoteLogger
 import com.bastion.app.ssh.AuthConfig
 import com.bastion.app.ssh.SshSession
 import com.bastion.app.ssh.loadKeyPairFromPem
+import com.bastion.app.terminal.SystemStatsPanel
 import com.bastion.app.terminal.TerminalTab
 import com.bastion.app.terminal.cleanupTerminalSession
 import com.bastion.app.ui.theme.ColorMode
+import com.bastion.app.ui.theme.StitchBackground
+import com.bastion.app.ui.theme.StitchOnPrimaryFixed
 import com.bastion.app.ui.theme.StitchOnSurface
 import com.bastion.app.ui.theme.StitchOnSurfaceVariant
+import com.bastion.app.ui.theme.StitchOutline
 import com.bastion.app.ui.theme.StitchOutlineVariant
-import com.bastion.app.ui.theme.StitchPrimary
+import com.bastion.app.ui.theme.StitchPrimaryContainer
+import com.bastion.app.ui.theme.StitchPrimaryFixedDim
 import com.bastion.app.ui.theme.StitchSecondary
+import com.bastion.app.ui.theme.StitchSecondaryContainer
 import com.bastion.app.ui.theme.StitchSurfaceContainer
 import com.bastion.app.ui.theme.StitchSurfaceContainerHigh
 import com.bastion.app.ui.theme.StitchSurfaceContainerHighest
+import com.bastion.app.ui.theme.StitchSurfaceContainerLow
 import com.bastion.app.ui.theme.StitchSurfaceContainerLowest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -98,9 +104,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class NavSection(val label: String, val icon: ImageVector) {
-    SERVERS("Servers", Icons.Default.Dns),
+    SERVERS("Connections", Icons.Default.Dns),
     SSH_KEYS("SSH Keys", Icons.Default.VpnKey),
-    SESSIONS("Sessions", Icons.Default.Devices),
+    SESSIONS("Terminal", Icons.Default.Devices),
     SETTINGS("Settings", Icons.Default.Settings)
 }
 
@@ -175,74 +181,100 @@ fun AppLayout(
 
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
+    var showStats by remember { mutableStateOf(false) }
+    val anySessionActive = terminalSessions.any {
+        val s = it.session.state.value
+        s == com.bastion.app.ssh.SessionState.SHELL_ACTIVE
+    }
 
-    Row(modifier = modifier.fillMaxSize()) {
-        Sidebar(
-            selectedSection = selectedSection,
-            onSectionSelected = { selectedSection = it; searchQuery = "" },
-            onNewInstance = onNavigateToAddHost
-        )
+    Column(modifier = modifier.fillMaxSize().background(StitchBackground)) {
+        Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            Sidebar(
+                selectedSection = selectedSection,
+                onSectionSelected = { selectedSection = it; searchQuery = "" },
+                onNewInstance = onNavigateToAddHost
+            )
 
-        Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-            if (selectedSection != NavSection.SESSIONS) {
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 AppHeader(
                     section = selectedSection,
-                    showSearch = selectedSection == NavSection.SSH_KEYS,
                     searchQuery = searchQuery,
                     onSearchChange = { searchQuery = it },
-                    onHelp = {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/wiki"))
-                        )
+                    onConnect = {
+                        if (terminalSessions.isNotEmpty()) {
+                            selectedSection = NavSection.SESSIONS
+                            scope.launch { pagerState.animateScrollToPage(pagerState.currentPage) }
+                        }
                     },
-                    onNotifications = {
-                        Toast.makeText(context, "No new notifications", Toast.LENGTH_SHORT).show()
-                    }
+                    terminalSessionsCount = terminalSessions.size
                 )
-            }
 
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when (selectedSection) {
-                    NavSection.SERVERS -> {
-                        VaultTabContent(
-                            repository = repository,
-                            onAddHost = onNavigateToAddHost,
-                            onEditHost = onNavigateToEditHost,
-                            onConnect = { host -> openTerminalSession(host) },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    NavSection.SESSIONS -> {
-                        if (terminalSessions.isEmpty()) {
-                            EmptyTerminalPlaceholder(
-                                onBrowseServers = { selectedSection = NavSection.SERVERS }
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    when (selectedSection) {
+                        NavSection.SERVERS -> {
+                            VaultTabContent(
+                                repository = repository,
+                                onAddHost = onNavigateToAddHost,
+                                onEditHost = onNavigateToEditHost,
+                                onConnect = { host -> openTerminalSession(host) },
+                                modifier = Modifier.fillMaxSize()
                             )
-                        } else {
-                            TerminalPagerContent(
-                                sessions = terminalSessions,
-                                pagerState = pagerState,
-                                webViewCache = webViewCache,
-                                onCloseSession = { closeTerminalSession(it) },
+                        }
+                        NavSection.SESSIONS -> {
+                            if (terminalSessions.isEmpty()) {
+                                EmptyTerminalPlaceholder(
+                                    onBrowseServers = { selectedSection = NavSection.SERVERS }
+                                )
+                            } else {
+                                Row(modifier = Modifier.fillMaxSize()) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        TerminalPagerContent(
+                                            sessions = terminalSessions,
+                                            pagerState = pagerState,
+                                            webViewCache = webViewCache,
+                                            onCloseSession = { closeTerminalSession(it) },
+                                            showStats = showStats,
+                                            onToggleStats = { showStats = !showStats },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                    if (showStats) {
+                                        val currentSession = terminalSessions.getOrNull(pagerState.currentPage)
+                                        SystemStatsPanel(
+                                            hostname = currentSession?.hostname ?: "",
+                                            isConnected = currentSession?.let { s ->
+                                                s.session.state.value == com.bastion.app.ssh.SessionState.SHELL_ACTIVE
+                                            } ?: false,
+                                            onClose = { showStats = false }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        NavSection.SSH_KEYS -> {
+                            SSHKeysContent(
+                                repository = repository,
+                                searchQuery = searchQuery,
+                                onSearchChange = { searchQuery = it },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        NavSection.SETTINGS -> {
+                            SettingsContent(
+                                repository = repository,
+                                colorMode = colorMode,
+                                onColorModeChange = onColorModeChange,
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
                     }
-                    NavSection.SSH_KEYS -> {
-                        SSHKeysContent(
-                            repository = repository,
-                            searchQuery = searchQuery,
-                            onSearchChange = { searchQuery = it },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    NavSection.SETTINGS -> {
-                        SettingsContent(
-                            repository = repository,
-                            colorMode = colorMode,
-                            onColorModeChange = onColorModeChange,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                }
+
+                if (terminalSessions.isNotEmpty()) {
+                    SessionFooter(
+                        sessionTitle = terminalSessions.getOrNull(pagerState.currentPage)?.title ?: "",
+                        isConnected = anySessionActive
+                    )
                 }
             }
         }
@@ -272,44 +304,44 @@ private fun Sidebar(
         modifier = Modifier
             .width(sidebarWidth)
             .fillMaxHeight()
-            .background(MaterialTheme.colorScheme.surface)
-            .drawWithContent {
-                drawContent()
-                drawLine(StitchOutlineVariant, Offset.Zero, Offset(0f, size.height), strokeWidth = 1.dp.toPx())
-            }
+            .background(StitchSurfaceContainer)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = if (collapsed) 8.dp else 24.dp, vertical = 20.dp),
+                .padding(horizontal = if (collapsed) 8.dp else 16.dp, vertical = 16.dp),
             horizontalAlignment = if (collapsed) Alignment.CenterHorizontally else Alignment.Start
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(if (collapsed) 0.dp else 12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                IconButton(
-                    onClick = { collapsed = !collapsed },
-                    modifier = Modifier.size(32.dp)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(StitchSurfaceContainerHighest),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = if (collapsed) Icons.Default.Add else Icons.Default.Close,
-                        contentDescription = if (collapsed) "Expand" else "Collapse",
-                        tint = StitchOnSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
+                    Text(
+                        text = "B",
+                        color = StitchPrimaryFixedDim,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
                 if (!collapsed) {
                     Column {
                         Text(
                             text = "Bastion",
-                            color = StitchPrimary,
+                            color = StitchPrimaryFixedDim,
                             fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.5).sp
                         )
                         Text(
                             text = "Infrastructure Management",
-                            color = StitchOnSurfaceVariant,
+                            color = StitchOnSurfaceVariant.copy(alpha = 0.6f),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
@@ -319,7 +351,56 @@ private fun Sidebar(
             }
         }
 
-        Spacer(Modifier.height(if (collapsed) 16.dp else 8.dp))
+        if (!collapsed) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(StitchPrimaryContainer)
+                    .clickable(onClick = onNewInstance)
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = StitchOnPrimaryFixed,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "New Connection",
+                        color = StitchOnPrimaryFixed,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(StitchPrimaryContainer)
+                    .clickable(onClick = onNewInstance),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "New Connection",
+                    tint = StitchOnPrimaryFixed,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(if (collapsed) 12.dp else 8.dp))
 
         NavSection.entries.forEach { section ->
             SidebarNavItem(
@@ -333,59 +414,10 @@ private fun Sidebar(
 
         Spacer(Modifier.weight(1f))
 
-        if (collapsed) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(StitchPrimary)
-                    .clickable(onClick = onNewInstance),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AddCircle,
-                    contentDescription = "New Instance",
-                    tint = Color(0xFF003548),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(StitchPrimary)
-                    .clickable(onClick = onNewInstance)
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AddCircle,
-                        contentDescription = null,
-                        tint = Color(0xFF003548),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Text(
-                        text = "New Instance",
-                        color = Color(0xFF003548),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-
         if (!collapsed) {
             Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 SidebarLinkItem(
                     icon = Icons.Default.Description,
@@ -443,7 +475,7 @@ private fun Sidebar(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "Administrator",
+                        text = "Superuser",
                         color = StitchOnSurfaceVariant,
                         fontSize = 10.sp,
                         letterSpacing = 1.sp,
@@ -454,7 +486,7 @@ private fun Sidebar(
                 Icon(
                     imageVector = Icons.Default.Security,
                     contentDescription = null,
-                    tint = StitchPrimary,
+                    tint = StitchPrimaryFixedDim,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -470,19 +502,19 @@ private fun SidebarNavItem(
     collapsed: Boolean = false,
     onClick: () -> Unit
 ) {
-    val bgColor = if (isSelected) StitchSecondary.copy(alpha = 0.1f) else Color.Transparent
-    val contentColor = if (isSelected) StitchSecondary else StitchOnSurfaceVariant
+    val bgColor = if (isSelected) StitchSurfaceContainerHigh else Color.Transparent
+    val contentColor = if (isSelected) StitchPrimaryFixedDim else StitchOnSurfaceVariant
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(4.dp))
             .background(bgColor)
             .clickable(onClick = onClick)
             .then(
                 if (collapsed) Modifier.padding(vertical = 12.dp)
-                else Modifier.padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
+                else Modifier.padding(start = 0.dp, end = 12.dp, top = 10.dp, bottom = 10.dp)
             ),
         contentAlignment = if (collapsed) Alignment.Center else Alignment.CenterStart
     ) {
@@ -495,27 +527,27 @@ private fun SidebarNavItem(
                 if (isSelected) {
                     Box(
                         modifier = Modifier
-                            .width(3.dp)
+                            .width(2.dp)
                             .height(20.dp)
-                            .background(StitchSecondary, RoundedCornerShape(2.dp))
+                            .background(StitchSecondaryContainer, RoundedCornerShape(1.dp))
                     )
-                    Spacer(Modifier.width(4.dp))
                 } else {
-                    Spacer(Modifier.width(7.dp))
+                    Spacer(Modifier.width(2.dp))
                 }
+                Spacer(Modifier.width(8.dp))
             }
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = contentColor,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(20.dp)
             )
             if (!collapsed) {
                 Text(
                     text = label,
                     color = contentColor,
                     fontSize = 14.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
         }
@@ -531,7 +563,7 @@ private fun SidebarLinkItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(4.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -541,12 +573,12 @@ private fun SidebarLinkItem(
             imageVector = icon,
             contentDescription = null,
             tint = StitchOnSurfaceVariant,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
         )
         Text(
             text = label,
             color = StitchOnSurfaceVariant,
-            fontSize = 14.sp
+            fontSize = 13.sp
         )
     }
 }
@@ -554,57 +586,90 @@ private fun SidebarLinkItem(
 @Composable
 private fun AppHeader(
     section: NavSection,
-    showSearch: Boolean,
     searchQuery: String,
     onSearchChange: (String) -> Unit,
-    onHelp: () -> Unit,
-    onNotifications: () -> Unit
+    onConnect: () -> Unit,
+    terminalSessionsCount: Int
 ) {
+    val context = LocalContext.current
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
-            .background(MaterialTheme.colorScheme.background)
-            .drawWithContent {
-                drawContent()
-                val y = size.height - 1.dp.toPx()
-                drawLine(StitchOutlineVariant, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
-            }
-            .padding(horizontal = 24.dp),
+            .height(48.dp)
+            .background(StitchSurfaceContainer)
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (showSearch) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Sessions",
+                    color = StitchPrimaryFixedDim,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "Clusters",
+                    color = StitchOnSurfaceVariant,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal
+                )
+                Text(
+                    text = "History",
+                    color = StitchOnSurfaceVariant,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .height(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .border(1.dp, StitchOutlineVariant, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 12.dp),
+                        .width(200.dp)
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(StitchSurfaceContainerLow)
+                        .border(1.dp, StitchOutlineVariant, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Icon(Icons.Default.Search, contentDescription = null,
-                            tint = StitchOnSurfaceVariant, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            tint = StitchOnSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
+                        )
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = onSearchChange,
                             singleLine = true,
-                            cursorBrush = SolidColor(StitchPrimary),
-                            textStyle = TextStyle(color = StitchOnSurface, fontSize = 14.sp),
+                            cursorBrush = SolidColor(StitchPrimaryContainer),
+                            textStyle = TextStyle(
+                                color = StitchOnSurface,
+                                fontSize = 13.sp
+                            ),
                             decorationBox = { innerTextField ->
                                 if (searchQuery.isEmpty()) {
-                                    Text("Search keys, fingerprints, or servers...",
-                                        color = StitchOnSurfaceVariant.copy(alpha = 0.6f),
-                                        fontSize = 14.sp)
+                                    Text(
+                                        "Global search...",
+                                        color = StitchOnSurfaceVariant.copy(alpha = 0.5f),
+                                        fontSize = 13.sp
+                                    )
                                 }
                                 innerTextField()
                             },
@@ -612,61 +677,109 @@ private fun AppHeader(
                         )
                     }
                 }
-            } else {
-                Text(
-                    text = section.label,
-                    color = StitchOnSurface,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onHelp) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Help,
-                        contentDescription = "Help",
-                        tint = StitchOnSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Box {
-                    IconButton(onClick = onNotifications) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = StitchOnSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
+
+                IconButton(
+                    onClick = {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion"))
                         )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(StitchSecondary)
-                            .align(Alignment.TopEnd)
-                            .padding(end = 4.dp, top = 4.dp)
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(StitchSurfaceContainerHighest)
-                        .border(1.dp, StitchOutlineVariant, CircleShape),
-                    contentAlignment = Alignment.Center
+                    },
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
+                        Icons.Default.Notifications,
+                        contentDescription = "Notifications",
                         tint = StitchOnSurfaceVariant,
                         modifier = Modifier.size(18.dp)
                     )
                 }
+
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(StitchSecondaryContainer.copy(alpha = 0.2f))
+                        .border(1.dp, StitchSecondaryContainer, RoundedCornerShape(4.dp))
+                        .clickable(onClick = onConnect)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Connect",
+                        color = StitchSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun SessionFooter(
+    sessionTitle: String,
+    isConnected: Boolean
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(32.dp)
+            .background(StitchSurfaceContainerLowest)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Bastion SSH",
+                color = StitchPrimaryFixedDim,
+                fontSize = 11.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            )
+            Text(
+                text = "|",
+                color = StitchOutlineVariant,
+                fontSize = 11.sp
+            )
+            Text(
+                text = sessionTitle,
+                color = StitchOnSurfaceVariant,
+                fontSize = 11.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 200.dp)
+            )
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(if (isConnected) StitchPrimaryContainer else StitchOutline)
+                )
+                Text(
+                    text = if (isConnected) "Connected" else "Disconnected",
+                    color = if (isConnected) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
+                    fontSize = 10.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            }
+            Text(
+                text = "UTF-8",
+                color = StitchOnSurfaceVariant,
+                fontSize = 10.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            )
         }
     }
 }
@@ -677,16 +790,20 @@ private fun TerminalPagerContent(
     pagerState: PagerState,
     webViewCache: MutableMap<SshSession, WebView>,
     onCloseSession: (Int) -> Unit,
+    showStats: Boolean,
+    onToggleStats: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        TerminalTabBar(
+        SessionTabBar(
             sessions = sessions,
             activeSessionIndex = pagerState.currentPage,
             onTabClick = { index ->
                 kotlinx.coroutines.MainScope().launch { pagerState.animateScrollToPage(index) }
             },
-            onTabClose = onCloseSession
+            onTabClose = onCloseSession,
+            onToggleStats = onToggleStats,
+            showStats = showStats
         )
         HorizontalPager(
             state = pagerState,
@@ -702,6 +819,8 @@ private fun TerminalPagerContent(
                 username = ts.username,
                 authTypeLabel = ts.authTypeLabel,
                 title = ts.title,
+                showStats = showStats,
+                onToggleStats = onToggleStats,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -709,61 +828,101 @@ private fun TerminalPagerContent(
 }
 
 @Composable
-private fun TerminalTabBar(
+private fun SessionTabBar(
     sessions: List<TerminalSession>,
     activeSessionIndex: Int,
     onTabClick: (Int) -> Unit,
-    onTabClose: (Int) -> Unit
+    onTabClose: (Int) -> Unit,
+    onToggleStats: () -> Unit,
+    showStats: Boolean
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(StitchSurfaceContainer)
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(StitchSurfaceContainerLowest)
+            .padding(start = 0.dp, end = 4.dp, top = 0.dp, bottom = 0.dp),
+        verticalAlignment = Alignment.Bottom
     ) {
         LazyRow(
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(2.dp)
+            horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             itemsIndexed(sessions, key = { _, s -> s.id }) { index, session ->
                 val isActive = index == activeSessionIndex
-                val textColor = if (isActive) StitchPrimary else Color(0xFF777777)
 
-                Row(
+                Column(
                     modifier = Modifier
-                        .clickable { onTabClick(index) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { onTabClick(index) }
+                        )
                 ) {
-                    Icon(
-                        Icons.Default.Devices,
-                        contentDescription = null,
-                        tint = textColor,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = session.title,
-                        color = textColor,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.width(100.dp)
-                    )
-                    IconButton(
-                        onClick = { onTabClose(index) },
-                        modifier = Modifier.size(18.dp)
+                    Row(
+                        modifier = Modifier
+                            .background(
+                                if (isActive) StitchSurfaceContainerHigh else Color.Transparent
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = Color(0xFF555555),
-                            modifier = Modifier.size(12.dp)
+                            Icons.Default.Devices,
+                            contentDescription = null,
+                            tint = if (isActive) StitchPrimaryFixedDim else StitchOnSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(14.dp)
                         )
+                        Text(
+                            text = session.title,
+                            color = if (isActive) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.widthIn(max = 120.dp)
+                        )
+                        IconButton(
+                            onClick = { onTabClose(index) },
+                            modifier = Modifier.size(14.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = StitchOnSurfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier.size(10.dp)
+                            )
+                        }
                     }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(
+                                if (isActive) StitchPrimaryContainer else Color.Transparent
+                            )
+                    )
                 }
             }
+        }
+
+        Box(
+            modifier = Modifier
+                .padding(vertical = 6.dp, horizontal = 4.dp)
+                .size(28.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(
+                    if (showStats) StitchSurfaceContainerHigh else Color.Transparent
+                )
+                .clickable(onClick = onToggleStats),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "S",
+                color = if (showStats) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            )
         }
     }
 }
@@ -778,26 +937,26 @@ private fun EmptyTerminalPlaceholder(onBrowseServers: () -> Unit) {
             Icon(
                 Icons.Default.Devices,
                 contentDescription = null,
-                tint = Color(0xFF555555),
+                tint = StitchOutline,
                 modifier = Modifier.size(64.dp)
             )
             Spacer(Modifier.height(16.dp))
             Text(
                 "No active sessions",
-                color = Color(0xFF888888),
+                color = StitchOnSurfaceVariant,
                 fontSize = 16.sp
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Connect to a server to start a terminal session",
-                color = Color(0xFF666666),
+                color = StitchOnSurfaceVariant.copy(alpha = 0.7f),
                 fontSize = 14.sp
             )
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = onBrowseServers) {
                 Text(
                     "Browse servers",
-                    color = StitchPrimary,
+                    color = StitchPrimaryContainer,
                     fontSize = 14.sp
                 )
             }

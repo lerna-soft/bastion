@@ -86,7 +86,10 @@ import com.bastion.app.ui.theme.StitchOnSurface
 import com.bastion.app.ui.theme.StitchOnSurfaceVariant
 import com.bastion.app.ui.theme.StitchOutlineVariant
 import com.bastion.app.ui.theme.StitchPrimary
+import com.bastion.app.ui.theme.StitchPrimaryContainer
+import com.bastion.app.ui.theme.StitchPrimaryFixedDim
 import com.bastion.app.ui.theme.StitchSecondary
+import com.bastion.app.ui.theme.StitchSecondaryContainer
 import com.bastion.app.ui.theme.StitchSurfaceContainerLow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -208,7 +211,7 @@ private fun SectionCard(title: String, icon: ImageVector, content: @Composable (
             .border(1.dp, StitchOutlineVariant, RoundedCornerShape(12.dp)).padding(24.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(icon, contentDescription = null, tint = StitchPrimary, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = null, tint = StitchPrimaryFixedDim, modifier = Modifier.size(20.dp))
             Text(title, style = MaterialTheme.typography.titleMedium, color = StitchOnSurface,
                 fontWeight = FontWeight.Bold)
         }
@@ -299,7 +302,7 @@ private fun TextField(label: String, value: String, onValueChange: (String) -> U
             ),
             modifier = modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = StitchPrimary,
+                focusedBorderColor = StitchSecondaryContainer,
                 unfocusedBorderColor = StitchOutlineVariant,
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -402,7 +405,7 @@ private fun AppearanceSection(
                     ColorMode.MONOKAI -> MonokaiBackground
                     ColorMode.SYSTEM -> MaterialTheme.colorScheme.surfaceVariant
                 }
-                val borderColor = if (isSelected) StitchPrimary else StitchOutlineVariant
+                val borderColor = if (isSelected) StitchSecondaryContainer else StitchOutlineVariant
                 val textColor = when (mode) {
                     ColorMode.DARK -> StitchOnSurface
                     ColorMode.LIGHT -> Color(0xFF1C2023)
@@ -422,7 +425,7 @@ private fun AppearanceSection(
                             .border(1.dp, StitchOutlineVariant.copy(alpha = 0.3f), RoundedCornerShape(6.dp)))
                         Spacer(Modifier.height(8.dp))
                         Text(label,
-                            color = if (isSelected) StitchPrimary else StitchOnSurfaceVariant,
+                            color = if (isSelected) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
                             fontSize = 13.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
                     }
@@ -432,13 +435,13 @@ private fun AppearanceSection(
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             SectionLabel("Font Size")
-            Text("${fontSize.toInt()}px", color = StitchPrimary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+            Text("${fontSize.toInt()}px", color = StitchPrimaryFixedDim, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
         }
         Spacer(Modifier.height(8.dp))
         Slider(value = fontSize, onValueChange = onFontSizeChange,
             valueRange = 12f..20f, steps = 7,
-            colors = SliderDefaults.colors(thumbColor = StitchPrimary,
-                activeTrackColor = StitchPrimary, inactiveTrackColor = StitchOutlineVariant))
+            colors = SliderDefaults.colors(thumbColor = StitchPrimaryContainer,
+                activeTrackColor = StitchPrimaryContainer, inactiveTrackColor = StitchOutlineVariant))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Compact", color = StitchOnSurfaceVariant, fontSize = 10.sp)
             Text("Default", color = StitchOnSurfaceVariant, fontSize = 10.sp)
@@ -492,8 +495,8 @@ private fun ApiKeysSection(
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.clickable { showCreateKey = true }) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = StitchPrimary, modifier = Modifier.size(16.dp))
-                Text("Create New Key", color = StitchPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Add, contentDescription = null, tint = StitchPrimaryContainer, modifier = Modifier.size(16.dp))
+                Text("Create New Key", color = StitchPrimaryContainer, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(16.dp))
@@ -559,7 +562,7 @@ private fun ApiKeyRow(label: String, keyValue: String, created: String,
         Text(created, color = StitchOnSurfaceVariant, fontSize = 13.sp, modifier = Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.ContentCopy, contentDescription = "Copy",
-                tint = StitchPrimary, modifier = Modifier.size(20.dp).clickable(onClick = onCopy).padding(2.dp))
+                tint = StitchPrimaryFixedDim, modifier = Modifier.size(20.dp).clickable(onClick = onCopy).padding(2.dp))
             Icon(Icons.Default.DeleteForever, contentDescription = "Revoke",
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(20.dp).clickable(onClick = onRevoke).padding(2.dp))
@@ -582,7 +585,7 @@ private fun AboutSection() {
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                 .border(1.dp, StitchOutlineVariant, RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Security, contentDescription = null, tint = StitchPrimary,
+                Icon(Icons.Default.Security, contentDescription = null, tint = StitchPrimaryFixedDim,
                     modifier = Modifier.size(32.dp))
             }
             Spacer(Modifier.height(16.dp))
@@ -629,9 +632,9 @@ private fun AboutButton(text: String, primary: Boolean = false, onClick: () -> U
     if (primary) {
         Box(modifier = Modifier.clip(RoundedCornerShape(8.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .border(1.dp, StitchPrimary.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+            .border(1.dp, StitchPrimaryContainer.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
             .clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)) {
-            Text(text, color = StitchPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(text, color = StitchPrimaryContainer, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     } else {
         Box(modifier = Modifier.clip(RoundedCornerShape(8.dp))

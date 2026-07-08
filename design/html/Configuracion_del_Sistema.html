@@ -1,0 +1,422 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Terminax | Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet">
+<!-- Shared Component Styling Tokens Implementation -->
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Custom Scrollbar for Terminal aesthetic */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #182216;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b4b37;
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #84967e;
+        }
+        
+        /* Glassmorphism for HUD elements */
+        .hud-overlay {
+            background: rgba(22, 27, 34, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid #30363D;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#0c160a",
+                        "on-secondary-fixed": "#001a41",
+                        "inverse-surface": "#dae6d2",
+                        "on-tertiary": "#442b10",
+                        "inverse-primary": "#006e16",
+                        "secondary-fixed": "#d8e2ff",
+                        "primary-fixed": "#72ff70",
+                        "outline-variant": "#3b4b37",
+                        "error": "#ffb4ab",
+                        "on-error-container": "#ffdad6",
+                        "surface-container-highest": "#2d382a",
+                        "on-secondary": "#002e68",
+                        "surface-container-lowest": "#071106",
+                        "primary-fixed-dim": "#00e639",
+                        "surface-container-high": "#222d20",
+                        "on-error": "#690005",
+                        "surface-container": "#182216",
+                        "on-secondary-fixed-variant": "#004493",
+                        "inverse-on-surface": "#283326",
+                        "on-primary": "#003907",
+                        "surface-variant": "#2d382a",
+                        "on-secondary-container": "#00285b",
+                        "on-background": "#dae6d2",
+                        "on-tertiary-fixed": "#2c1701",
+                        "on-surface-variant": "#b9ccb2",
+                        "on-tertiary-container": "#7a5b3c",
+                        "tertiary-fixed-dim": "#e7bf99",
+                        "on-surface": "#dae6d2",
+                        "primary": "#ebffe2",
+                        "on-tertiary-fixed-variant": "#5d4124",
+                        "on-primary-container": "#007117",
+                        "secondary-fixed-dim": "#adc7ff",
+                        "background": "#0c160a",
+                        "secondary-container": "#4a8eff",
+                        "on-primary-fixed": "#002203",
+                        "secondary": "#adc7ff",
+                        "outline": "#84967e",
+                        "tertiary": "#fff8f4",
+                        "surface-bright": "#313c2e",
+                        "primary-container": "#00ff41",
+                        "surface-tint": "#00e639",
+                        "error-container": "#93000a",
+                        "on-primary-fixed-variant": "#00530e",
+                        "surface-container-low": "#141e12",
+                        "tertiary-container": "#ffd5ae",
+                        "tertiary-fixed": "#ffdcbd",
+                        "surface": "#0c160a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "terminal-padding": "1rem",
+                        "unit": "4px",
+                        "margin-sm": "8px",
+                        "gutter": "12px",
+                        "sidebar-width": "260px",
+                        "margin-md": "16px",
+                        "margin-lg": "24px"
+                    },
+                    "fontFamily": {
+                        "ui-label-bold": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "terminal-sm": ["JetBrains Mono"],
+                        "ui-body": ["Inter"],
+                        "terminal-main": ["JetBrains Mono"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "ui-label-bold": ["12px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                        "headline-md": ["20px", {"lineHeight": "1.4", "fontWeight": "600"}],
+                        "terminal-sm": ["12px", {"lineHeight": "1.4", "fontWeight": "400"}],
+                        "ui-body": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "terminal-main": ["14px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "display-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-ui-body text-ui-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- SIDEBAR (SideNavBar Shared Component) -->
+<aside class="flex flex-col h-full w-[260px] fixed left-0 top-0 bg-surface-container border-r border-outline-variant z-50">
+<div class="p-margin-md flex flex-col gap-unit">
+<div class="flex items-center gap-margin-sm mb-margin-md">
+<img alt="Terminax Logo" class="w-10 h-10 object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLsgAZpJaQUJQ3mzmQInHU7fmpVt1YE91RHV-D03RcNTGOSd-z2n24HUvjRohxLagh073l2Xb4rY35m4yvaOyzru24sXec2Aq0mo0htQIJvTqXWnrcUIEXacBUw6wopzGqKVqoISCkQUZjSgs_OPx5_zI6P8fRoZLyeau7pyJ-QwbFS6_EkdNLQvxPqBBriDjXsVCeLRNGKAm1Apu9KTnYXYyxJ1QCJpTosznCN2kuvCfLWkAAbw-9vmsZQ">
+<div>
+<h1 class="font-display-lg text-display-lg font-bold text-primary-fixed-dim tracking-tight leading-none">Terminax</h1>
+<p class="font-ui-label-bold text-ui-label-bold text-on-surface-variant opacity-60">v1.2.4-stable</p>
+</div>
+</div>
+<button class="w-full py-3 mb-margin-md bg-primary-container text-on-primary-container font-ui-label-bold text-ui-label-bold rounded-DEFAULT active:scale-95 transition-transform duration-100 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                New Connection
+            </button>
+<nav class="flex flex-col gap-1">
+<!-- Navigation Tabs from JSON -->
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant font-ui-body text-ui-body hover:bg-surface-container-highest transition-colors duration-200 rounded-DEFAULT group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary-fixed-dim">dns</span>
+<span>Connections</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant font-ui-body text-ui-body hover:bg-surface-container-highest transition-colors duration-200 rounded-DEFAULT group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary-fixed-dim">terminal</span>
+<span>Terminal</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant font-ui-body text-ui-body hover:bg-surface-container-highest transition-colors duration-200 rounded-DEFAULT group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary-fixed-dim">vpn_key</span>
+<span>SSH Keys</span>
+</a>
+<!-- Active State: Settings -->
+<a class="flex items-center gap-3 px-3 py-2 text-primary-fixed-dim border-l-2 border-secondary-container bg-surface-container-high font-ui-body text-ui-body rounded-r-DEFAULT" href="#">
+<span class="material-symbols-outlined fill-icon" style="font-variation-settings: 'FILL' 1;">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+</div>
+<div class="mt-auto p-margin-md flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant font-ui-body text-ui-body hover:bg-surface-container-highest transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">help_outline</span>
+<span>Help</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant font-ui-body text-ui-body hover:bg-surface-container-highest transition-colors duration-200 rounded-DEFAULT" href="#">
+<span class="material-symbols-outlined">list_alt</span>
+<span>Logs</span>
+</a>
+<div class="flex items-center gap-3 px-3 py-4 mt-2 border-t border-outline-variant">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-[20px] text-primary-fixed-dim">person</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-ui-label-bold text-ui-label-bold text-on-surface truncate">admin@terminax.io</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest">Premium Plan</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TOP BAR (TopNavBar Shared Component) -->
+<header class="flex justify-between items-center h-12 px-margin-md ml-[260px] bg-surface-container border-b border-outline-variant sticky top-0 z-40">
+<div class="flex items-center gap-margin-lg">
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface">Settings</h2>
+<nav class="hidden md:flex gap-margin-md">
+<a class="text-on-surface-variant font-ui-body text-ui-body hover:text-primary-fixed transition-colors" href="#">Sessions</a>
+<a class="text-on-surface-variant font-ui-body text-ui-body hover:text-primary-fixed transition-colors" href="#">Clusters</a>
+<a class="text-on-surface-variant font-ui-body text-ui-body hover:text-primary-fixed transition-colors" href="#">History</a>
+</nav>
+</div>
+<div class="flex items-center gap-margin-md">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+<input class="bg-surface-container-low border border-outline-variant text-ui-body py-1 pl-8 pr-4 rounded-DEFAULT focus:outline-none focus:border-secondary-container w-48 transition-all focus:w-64" placeholder="Search parameters..." type="text">
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-on-surface">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-on-surface">comment</span>
+<button class="bg-secondary-container text-on-secondary-container px-3 py-1 font-ui-label-bold text-ui-label-bold rounded-DEFAULT hover:opacity-90 active:scale-95 transition-all">Connect</button>
+</div>
+</div>
+</header>
+<!-- MAIN CONTENT CANVAS -->
+<main class="ml-[260px] min-h-[calc(100vh-80px)] p-margin-lg pb-16">
+<div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-margin-lg">
+<!-- Settings Form Area -->
+<div class="lg:col-span-7 space-y-margin-lg">
+<!-- Terminal Appearance Section -->
+<section class="bg-surface-container rounded-lg p-margin-lg border border-outline-variant">
+<div class="flex items-center gap-2 mb-margin-lg">
+<span class="material-symbols-outlined text-primary-fixed-dim">palette</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Terminal Appearance</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-margin-md mb-margin-lg">
+<div class="space-y-unit">
+<label class="font-ui-label-bold text-ui-label-bold text-on-surface-variant">Active Theme</label>
+<select class="w-full bg-surface-container-low border border-outline-variant text-on-surface p-2 rounded-DEFAULT focus:ring-1 focus:ring-primary-fixed-dim">
+<option>Obsidian Phosphor (Default)</option>
+<option>Solarized Dark</option>
+<option>Monokai Pro</option>
+<option>Nordic Night</option>
+<option>Matrix Green</option>
+</select>
+</div>
+<div class="space-y-unit">
+<label class="font-ui-label-bold text-ui-label-bold text-on-surface-variant">Font Family</label>
+<select class="w-full bg-surface-container-low border border-outline-variant text-on-surface p-2 rounded-DEFAULT focus:ring-1 focus:ring-primary-fixed-dim font-terminal-main">
+<option>JetBrains Mono</option>
+<option>Fira Code</option>
+<option>Source Code Pro</option>
+<option>Roboto Mono</option>
+</select>
+</div>
+<div class="space-y-unit">
+<label class="font-ui-label-bold text-ui-label-bold text-on-surface-variant">Font Size (px)</label>
+<input class="w-full bg-surface-container-low border border-outline-variant text-on-surface p-2 rounded-DEFAULT focus:ring-1 focus:ring-primary-fixed-dim" type="number" value="14">
+</div>
+<div class="space-y-unit">
+<label class="font-ui-label-bold text-ui-label-bold text-on-surface-variant">Cursor Style</label>
+<div class="flex gap-2">
+<button class="flex-1 py-2 border-2 border-primary-fixed-dim bg-surface-container-highest rounded-DEFAULT font-ui-label-bold text-ui-label-bold">Block</button>
+<button class="flex-1 py-2 border border-outline-variant bg-surface-container-low rounded-DEFAULT font-ui-label-bold text-ui-label-bold hover:bg-surface-container-high transition-colors">Underline</button>
+<button class="flex-1 py-2 border border-outline-variant bg-surface-container-low rounded-DEFAULT font-ui-label-bold text-ui-label-bold hover:bg-surface-container-high transition-colors">Beam</button>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between p-margin-sm bg-surface-container-low border border-outline-variant rounded-DEFAULT">
+<div class="flex items-center gap-3">
+<div class="w-4 h-4 rounded-full bg-primary-fixed-dim animate-pulse"></div>
+<span class="font-ui-label-bold text-ui-label-bold text-on-surface">Enable Cursor Blinking</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-fixed-dim"></div>
+</label>
+</div>
+</section>
+<!-- Security Section -->
+<section class="bg-surface-container rounded-lg p-margin-lg border border-outline-variant">
+<div class="flex items-center gap-2 mb-margin-lg">
+<span class="material-symbols-outlined text-primary-fixed-dim">security</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Security &amp; Access</h3>
+</div>
+<div class="space-y-margin-md">
+<div class="flex items-center justify-between p-margin-sm border-b border-outline-variant/30">
+<div>
+<h4 class="font-ui-label-bold text-ui-label-bold text-on-surface">Automatic Session Lock</h4>
+<p class="text-[12px] text-on-surface-variant">Lock interface after 15 minutes of inactivity</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-fixed-dim"></div>
+</label>
+</div>
+<div class="flex items-center justify-between p-margin-sm border-b border-outline-variant/30">
+<div>
+<h4 class="font-ui-label-bold text-ui-label-bold text-on-surface">Biometric Re-authentication</h4>
+<p class="text-[12px] text-on-surface-variant">Require TouchID/FaceID for sensitive operations</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox">
+<div class="w-11 h-6 bg-surface-container-highest rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-fixed-dim"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Network Section -->
+<section class="bg-surface-container rounded-lg p-margin-lg border border-outline-variant">
+<div class="flex items-center gap-2 mb-margin-lg">
+<span class="material-symbols-outlined text-primary-fixed-dim">lan</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Network Configuration</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-margin-md">
+<div class="space-y-unit">
+<label class="font-ui-label-bold text-ui-label-bold text-on-surface-variant">Proxy Server</label>
+<input class="w-full bg-surface-container-low border border-outline-variant text-on-surface p-2 rounded-DEFAULT focus:ring-1 focus:ring-primary-fixed-dim" placeholder="socks5://127.0.0.1:9050" type="text">
+</div>
+<div class="space-y-unit">
+<label class="font-ui-label-bold text-ui-label-bold text-on-surface-variant">Keep-Alive Interval (s)</label>
+<input class="w-full bg-surface-container-low border border-outline-variant text-on-surface p-2 rounded-DEFAULT focus:ring-1 focus:ring-primary-fixed-dim" type="number" value="60">
+</div>
+</div>
+</section>
+<!-- General Section -->
+<section class="bg-surface-container rounded-lg p-margin-lg border border-outline-variant">
+<div class="flex items-center gap-2 mb-margin-lg">
+<span class="material-symbols-outlined text-primary-fixed-dim">settings_applications</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">General</h3>
+</div>
+<div class="flex gap-margin-md">
+<button class="px-6 py-2 bg-primary-container text-on-primary-container font-ui-label-bold text-ui-label-bold rounded-DEFAULT hover:opacity-90 transition-all">Save Changes</button>
+<button class="px-6 py-2 border border-outline-variant text-on-surface-variant font-ui-label-bold text-ui-label-bold rounded-DEFAULT hover:bg-surface-container-highest transition-all">Reset to Defaults</button>
+</div>
+</section>
+</div>
+<!-- Preview Area -->
+<div class="lg:col-span-5">
+<div class="sticky top-20 space-y-margin-lg">
+<div class="bg-surface-container rounded-lg border border-outline-variant overflow-hidden">
+<div class="bg-surface-container-highest px-margin-md py-2 flex items-center justify-between border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-error"></div>
+<div class="w-3 h-3 rounded-full bg-tertiary-container"></div>
+<div class="w-3 h-3 rounded-full bg-primary-fixed-dim"></div>
+<span class="ml-2 font-ui-label-bold text-[10px] text-on-surface-variant uppercase tracking-widest">Theme Preview</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">open_in_full</span>
+</div>
+<!-- Terminal Mockup -->
+<div class="bg-surface-dim p-terminal-padding font-terminal-main text-terminal-main min-h-[360px] leading-relaxed">
+<div class="text-primary-fixed-dim">admin@terminax:~$ <span class="text-on-surface">ls -la</span></div>
+<div class="text-on-surface-variant opacity-80">
+                                total 48<br>
+                                drwxr-xr-x  6 admin admin 4096 Oct 12 14:32 .<br>
+                                drwxr-xr-x 22 admin admin 4096 Oct 12 10:15 ..<br>
+                                -rw-------  1 admin admin  512 Oct 12 14:32 .bash_history<br>
+                                drwx------  2 admin admin 4096 Sep 30 11:04 .ssh<br>
+                                -rw-r--r--  1 admin admin  220 Sep 30 11:04 .bash_logout
+                            </div>
+<div class="mt-4 text-primary-fixed-dim">admin@terminax:~$ <span class="text-on-surface">ssh prod-server-01</span></div>
+<div class="text-secondary-fixed">Authenticating with key 'deploy_rsa'...</div>
+<div class="text-primary-fixed-dim">Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 5.15.0-84-generic)</div>
+<div class="mt-2 flex items-center gap-0">
+<span class="text-primary-fixed-dim">admin@prod-01:~$ </span>
+<div class="w-2 h-5 bg-primary-fixed-dim animate-[pulse_1s_infinite]"></div>
+</div>
+</div>
+</div>
+<div class="hud-overlay rounded-lg p-margin-md">
+<h4 class="font-ui-label-bold text-ui-label-bold text-primary-fixed-dim mb-2 uppercase tracking-tighter">System Info</h4>
+<div class="space-y-2">
+<div class="flex justify-between items-center">
+<span class="text-[12px] text-on-surface-variant">Latency</span>
+<span class="text-[12px] font-terminal-sm text-primary-fixed-dim">1.2ms</span>
+</div>
+<div class="w-full bg-surface-container-low h-1 rounded-full overflow-hidden">
+<div class="bg-primary-fixed-dim h-full w-[85%]"></div>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-[12px] text-on-surface-variant">Buffer Cache</span>
+<span class="text-[12px] font-terminal-sm text-secondary-fixed">124MB / 512MB</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-unit">
+<div class="flex items-center gap-2 text-error text-[12px] font-ui-label-bold">
+<span class="material-symbols-outlined text-[16px]">warning</span>
+                            Unsaved configuration changes detected.
+                        </div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FOOTER (Footer Shared Component) -->
+<footer class="fixed bottom-0 left-0 right-0 h-8 flex items-center justify-between px-terminal-padding z-50 ml-[260px] bg-surface-container-lowest border-t border-outline-variant">
+<div class="flex items-center gap-margin-md">
+<p class="font-terminal-sm text-terminal-sm text-primary-fixed-dim opacity-80">© 2024 Terminax Systems. Connected to: production-web-01 (1ms latency)</p>
+</div>
+<div class="flex items-center gap-margin-md">
+<a class="font-terminal-sm text-terminal-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Documentation</a>
+<a class="font-terminal-sm text-terminal-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">Privacy Policy</a>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-fixed-dim"></span>
+<a class="font-terminal-sm text-terminal-sm text-on-surface-variant hover:text-on-surface transition-colors" href="#">System Status</a>
+</div>
+</div>
+</footer>
+<script>
+        // Micro-interactions for settings UI
+        document.querySelectorAll('select, input').forEach(el => {
+            el.addEventListener('change', () => {
+                const toast = document.createElement('div');
+                toast.className = 'fixed bottom-12 right-6 hud-overlay px-4 py-2 rounded-lg text-primary-fixed-dim font-ui-label-bold animate-bounce z-[100]';
+                toast.innerHTML = 'Preview Updated';
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 2000);
+            });
+        });
+
+        // Tab selection logic
+        const navLinks = document.querySelectorAll('nav a');
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (link.innerText.includes('Settings')) return; // Keep settings active for this demo
+                
+                navLinks.forEach(l => {
+                    l.classList.remove('text-primary-fixed-dim', 'border-l-2', 'border-secondary-container', 'bg-surface-container-high');
+                    l.classList.add('text-on-surface-variant');
+                });
+                
+                link.classList.add('text-primary-fixed-dim', 'border-l-2', 'border-secondary-container', 'bg-surface-container-high');
+                link.classList.remove('text-on-surface-variant');
+            });
+        });
+    </script>
+</body></html>
