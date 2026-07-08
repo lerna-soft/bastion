@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -122,6 +123,7 @@ fun TerminalTab(
     title: String = "",
     showStats: Boolean = false,
     onToggleStats: () -> Unit = {},
+    fontSize: Int = 14,
     modifier: Modifier = Modifier
 ) {
     val state by session.state.collectAsState()
@@ -173,6 +175,10 @@ fun TerminalTab(
             }
         }
         onDispose { }
+    }
+
+    LaunchedEffect(bridge.value, fontSize) {
+        bridge.value?.setFontSize(fontSize)
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -334,6 +340,7 @@ private fun ServerInfoBar(
 fun SystemStatsPanel(
     hostname: String,
     isConnected: Boolean,
+    session: SshSession?,
     onClose: () -> Unit
 ) {
     val panelWidth by animateDpAsState(
@@ -341,6 +348,20 @@ fun SystemStatsPanel(
         animationSpec = tween(300),
         label = "statsWidth"
     )
+
+    val collector = remember(isConnected, session) {
+        if (isConnected && session != null) StatsCollector(session) else null
+    }
+
+    val stats = collector?.stats?.collectAsState()?.value ?: SystemStats()
+    val logs = collector?.logs?.collectAsState()?.value ?: emptyList()
+
+    LaunchedEffect(collector) {
+        collector?.start()
+    }
+    DisposableEffect(collector) {
+        onDispose { collector?.stop() }
+    }
 
     Column(
         modifier = Modifier
@@ -387,105 +408,78 @@ fun SystemStatsPanel(
 
         Spacer(Modifier.height(12.dp))
 
-        if (isConnected) {
+        if (isConnected && session != null) {
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                MetricBar(
-                    label = "CPU Load",
-                    value = "12.4%",
-                    progress = 0.124f,
-                    color = StitchPrimaryContainer
-                )
-                MetricBar(
-                    label = "Memory",
-                    value = "4.2 / 16 GB",
-                    progress = 0.26f,
-                    color = StitchPrimaryContainer
-                )
-                MetricBar(
-                    label = "Disk usage",
-                    value = "412 / 512 GB",
-                    progress = 0.80f,
-                    color = StitchTertiaryContainer
-                )
-
-                Spacer(Modifier.height(8.dp))
-                HorizontalDividerStitch(color = StitchOutlineVariant)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
+                if (!stats.collected) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "\u2193",
-                                color = StitchPrimaryContainer,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = StitchPrimaryContainer
                             )
                             Text(
-                                text = "Downlink",
+                                text = "Collecting metrics...",
                                 color = StitchOnSurfaceVariant,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace
                             )
                         }
-                        Text(
-                            text = "1.2 MB/s",
-                            color = StitchOnSurface,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
                     }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "\u2191",
-                                color = StitchSecondaryContainer,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Uplink",
-                                color = StitchOnSurfaceVariant,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                } else {
+                    MetricBar(
+                        label = "CPU Load",
+                        value = "${String.format("%.1f", stats.cpuUsage * 100)}% (${stats.cpuCores} cores)",
+                        progress = stats.cpuUsage,
+                        color = StitchPrimaryContainer
+                    )
+                    MetricBar(
+                        label = "Memory",
+                        value = "${stats.memUsedMb} / ${stats.memTotalMb} MB",
+                        progress = stats.memProgress,
+                        color = StitchPrimaryContainer
+                    )
+                    MetricBar(
+                        label = "Disk ${stats.diskPath}",
+                        value = "${String.format("%.1f", stats.diskUsedGb)} / ${String.format("%.1f", stats.diskTotalGb)} GB",
+                        progress = stats.diskProgress,
+                        color = StitchTertiaryContainer
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDividerStitch(color = StitchOutlineVariant)
+
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        StatText("Load avg (1/5/15)", "${String.format("%.2f", stats.loadAvg1)} / ${String.format("%.2f", stats.loadAvg5)} / ${String.format("%.2f", stats.loadAvg15)}")
+                        StatText("Uptime since", stats.uptime.ifBlank { "—" })
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    HorizontalDividerStitch(color = StitchOutlineVariant)
+
+                    Text(
+                        text = "Connection Logs",
+                        color = StitchOutline,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        logs.takeLast(8).forEach { entry ->
+                            LogEntry(entry.time, entry.message)
                         }
-                        Text(
-                            text = "45 KB/s",
-                            color = StitchOnSurface,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
                     }
-                }
-
-                Spacer(Modifier.height(8.dp))
-                HorizontalDividerStitch(color = StitchOutlineVariant)
-
-                Text(
-                    text = "Connection Logs",
-                    color = StitchOutline,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    LogEntry("14:42:01", "Auth success (key)")
-                    LogEntry("14:40:12", "SSH Request handshake")
-                    LogEntry("14:40:11", "Tunnel established")
                 }
             }
         } else {
@@ -501,6 +495,17 @@ fun SystemStatsPanel(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun StatText(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, color = StitchOnSurfaceVariant, fontSize = 11.sp)
+        Text(value, color = StitchOnSurface, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
     }
 }
 

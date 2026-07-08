@@ -22,7 +22,7 @@ sealed class UpdateState {
     data object Idle : UpdateState()
     data object Checking : UpdateState()
     data class Available(val info: UpdateInfo) : UpdateState()
-    data class Downloading(val progress: Int) : UpdateState()
+    data class Downloading(val progress: Int, val info: UpdateInfo) : UpdateState()
     data object Ready : UpdateState()
     data class Error(val msg: String) : UpdateState()
 }
@@ -113,11 +113,11 @@ class BastionApp : Application() {
     }
 
     fun downloadUpdate(info: UpdateInfo) {
-        _updateState.value = UpdateState.Downloading(0)
+        _updateState.value = UpdateState.Downloading(0, info)
         appScope.launch {
             try {
                 val file = UpdateChecker.downloadApk(this@BastionApp, info) { pct ->
-                    _updateState.value = UpdateState.Downloading(pct)
+                    _updateState.value = UpdateState.Downloading(pct, info)
                 }
                 if (file != null) {
                     _updateState.value = UpdateState.Ready

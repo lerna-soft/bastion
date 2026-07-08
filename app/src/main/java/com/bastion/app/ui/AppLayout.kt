@@ -137,6 +137,12 @@ fun AppLayout(
     val pagerState = rememberPagerState(pageCount = { terminalSessions.size })
     val webViewCache = remember { mutableMapOf<SshSession, WebView>() }
     val scope = rememberCoroutineScope()
+    var fontSize by remember { mutableStateOf(14) }
+
+    LaunchedEffect(Unit) {
+        val settings = repository.getSettings()
+        fontSize = settings.fontSize.toInt()
+    }
 
     fun openTerminalSession(hostWithSecret: HostWithSecret) {
         val tabId = nextSessionId++
@@ -235,6 +241,7 @@ fun AppLayout(
                                             onCloseSession = { closeTerminalSession(it) },
                                             showStats = showStats,
                                             onToggleStats = { showStats = !showStats },
+                                            fontSize = fontSize,
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
@@ -245,6 +252,7 @@ fun AppLayout(
                                             isConnected = currentSession?.let { s ->
                                                 s.session.state.value == com.bastion.app.ssh.SessionState.SHELL_ACTIVE
                                             } ?: false,
+                                            session = currentSession?.session,
                                             onClose = { showStats = false }
                                         )
                                     }
@@ -461,34 +469,28 @@ private fun Sidebar(
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
-                        tint = StitchOnSurfaceVariant,
+                        tint = StitchOnSurfaceVariant.copy(alpha = 0.4f),
                         modifier = Modifier.size(20.dp)
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "User",
-                        color = StitchOnSurface,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = "Not signed in",
+                        color = StitchOnSurfaceVariant.copy(alpha = 0.5f),
+                        fontSize = 12.sp,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "Superuser",
-                        color = StitchOnSurfaceVariant,
+                        text = "Sign in to manage profile",
+                        color = StitchOnSurfaceVariant.copy(alpha = 0.3f),
                         fontSize = 10.sp,
-                        letterSpacing = 1.sp,
+                        letterSpacing = 0.5.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Icon(
-                    imageVector = Icons.Default.Security,
-                    contentDescription = null,
-                    tint = StitchPrimaryFixedDim,
-                    modifier = Modifier.size(16.dp)
-                )
             }
         }
     }
@@ -603,36 +605,13 @@ private fun AppHeader(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "Sessions",
-                    color = StitchPrimaryFixedDim,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "Clusters",
-                    color = StitchOnSurfaceVariant,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal
-                )
-                Text(
-                    text = "History",
-                    color = StitchOnSurfaceVariant,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal
-                )
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
@@ -792,6 +771,7 @@ private fun TerminalPagerContent(
     onCloseSession: (Int) -> Unit,
     showStats: Boolean,
     onToggleStats: () -> Unit,
+    fontSize: Int = 14,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -821,6 +801,7 @@ private fun TerminalPagerContent(
                 title = ts.title,
                 showStats = showStats,
                 onToggleStats = onToggleStats,
+                fontSize = fontSize,
                 modifier = Modifier.fillMaxSize()
             )
         }

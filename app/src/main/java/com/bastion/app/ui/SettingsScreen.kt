@@ -90,6 +90,7 @@ import com.bastion.app.ui.theme.StitchPrimaryContainer
 import com.bastion.app.ui.theme.StitchPrimaryFixedDim
 import com.bastion.app.ui.theme.StitchSecondary
 import com.bastion.app.ui.theme.StitchSecondaryContainer
+import com.bastion.app.ui.theme.StitchSurface
 import com.bastion.app.ui.theme.StitchSurfaceContainerLow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -379,9 +380,11 @@ private fun NotificationsSection(
 }
 
 private val themeOptions = listOf(
-    ColorMode.DARK to "Dark Mode" to Color(0xFF0F1417),
-    ColorMode.LIGHT to "Light Mode" to Color(0xFFF8F9FA),
+    ColorMode.DARK to "Neutral" to Color(0xFF0F1115),
+    ColorMode.STITCH_GREEN to "Stitch" to Color(0xFF0c160a),
+    ColorMode.LIGHT to "Light" to Color(0xFFF8F9FA),
     ColorMode.MONOKAI to "Monokai" to Color(0xFF272822),
+    ColorMode.OLED_DARK to "OLED" to Color(0xFF000000),
     ColorMode.SYSTEM to "System" to Color(0xFF1B2023),
 )
 
@@ -395,42 +398,50 @@ private fun AppearanceSection(
     SectionCard(title = "Appearance", icon = Icons.Default.Palette) {
         SectionLabel("Color Mode")
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            themeOptions.forEach { (pair, _) ->
-                val (mode, label) = pair
-                val isSelected = colorMode == mode
-                val bgColor = when (mode) {
-                    ColorMode.DARK -> MaterialTheme.colorScheme.surfaceDim
-                    ColorMode.LIGHT -> Color.White
-                    ColorMode.MONOKAI -> MonokaiBackground
-                    ColorMode.SYSTEM -> MaterialTheme.colorScheme.surfaceVariant
-                }
-                val borderColor = if (isSelected) StitchSecondaryContainer else StitchOutlineVariant
-                val textColor = when (mode) {
-                    ColorMode.DARK -> StitchOnSurface
-                    ColorMode.LIGHT -> Color(0xFF1C2023)
-                    ColorMode.MONOKAI -> MonokaiOnSurface
-                    ColorMode.SYSTEM -> StitchOnSurface
-                }
-                Box(
-                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
-                        .border(if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                        .clickable { onColorModeChange(mode) }.padding(12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
-                            .background(bgColor)
-                            .border(1.dp, StitchOutlineVariant.copy(alpha = 0.3f), RoundedCornerShape(6.dp)))
-                        Spacer(Modifier.height(8.dp))
-                        Text(label,
-                            color = if (isSelected) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
-                            fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+        val rows = themeOptions.chunked(3)
+        rows.forEach { rowOptions ->
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                rowOptions.forEach { (pair, _) ->
+                    val (mode, label) = pair
+                    val isSelected = colorMode == mode
+                    val bgColor = when (mode) {
+                        ColorMode.DARK -> MaterialTheme.colorScheme.surfaceDim
+                        ColorMode.STITCH_GREEN -> StitchSurface
+                        ColorMode.LIGHT -> Color.White
+                        ColorMode.MONOKAI -> MonokaiBackground
+                        ColorMode.OLED_DARK -> Color.Black
+                        ColorMode.SYSTEM -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                    val borderColor = if (isSelected) StitchSecondaryContainer else StitchOutlineVariant
+                    val textColor = when (mode) {
+                        ColorMode.DARK -> StitchOnSurface
+                        ColorMode.STITCH_GREEN -> StitchOnSurface
+                        ColorMode.LIGHT -> Color(0xFF1C2023)
+                        ColorMode.MONOKAI -> MonokaiOnSurface
+                        ColorMode.OLED_DARK -> Color(0xFFE0E0E0)
+                        ColorMode.SYSTEM -> StitchOnSurface
+                    }
+                    Box(
+                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                            .border(if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                            .clickable { onColorModeChange(mode) }.padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
+                                .background(bgColor)
+                                .border(1.dp, StitchOutlineVariant.copy(alpha = 0.3f), RoundedCornerShape(6.dp)))
+                            Spacer(Modifier.height(8.dp))
+                            Text(label,
+                                color = if (isSelected) StitchPrimaryFixedDim else StitchOnSurfaceVariant,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                        }
                     }
                 }
             }
+            Spacer(Modifier.height(12.dp))
         }
         Spacer(Modifier.height(24.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

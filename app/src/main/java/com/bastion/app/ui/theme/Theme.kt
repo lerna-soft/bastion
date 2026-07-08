@@ -11,9 +11,32 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-enum class ColorMode { DARK, LIGHT, MONOKAI, SYSTEM }
+enum class ColorMode { DARK, STITCH_GREEN, LIGHT, MONOKAI, SYSTEM, OLED_DARK }
 
-private val StitchDarkColorScheme = darkColorScheme(
+private val NeutralDarkColorScheme = darkColorScheme(
+    primary = NeutralDarkPrimary,
+    onPrimary = NeutralDarkOnPrimary,
+    primaryContainer = NeutralDarkPrimaryContainer,
+    onPrimaryContainer = NeutralDarkOnPrimaryContainer,
+    secondary = NeutralDarkSecondary,
+    onSecondary = NeutralDarkOnSecondary,
+    secondaryContainer = NeutralDarkSecondaryContainer,
+    onSecondaryContainer = NeutralDarkOnSecondaryContainer,
+    background = NeutralDarkBackground,
+    onBackground = NeutralDarkOnSurface,
+    surface = NeutralDarkSurface,
+    onSurface = NeutralDarkOnSurface,
+    surfaceVariant = NeutralDarkSurfaceVariant,
+    onSurfaceVariant = NeutralDarkOnSurfaceVariant,
+    outline = NeutralDarkOutline,
+    outlineVariant = NeutralDarkOutlineVariant,
+    error = NeutralDarkError,
+    onError = NeutralDarkOnError,
+    errorContainer = NeutralDarkErrorContainer,
+    onErrorContainer = NeutralDarkOnErrorContainer,
+)
+
+private val StitchGreenColorScheme = darkColorScheme(
     primary = StitchPrimary,
     onPrimary = StitchOnPrimary,
     primaryContainer = StitchPrimaryContainer,
@@ -88,6 +111,25 @@ private val MonokaiColorScheme = darkColorScheme(
     onErrorContainer = MonokaiOnErrorContainer,
 )
 
+private val OledDarkColorScheme = darkColorScheme(
+    primary = OledDarkPrimary,
+    onPrimary = OledDarkOnPrimary,
+    primaryContainer = OledDarkPrimaryContainer,
+    onPrimaryContainer = OledDarkOnPrimaryContainer,
+    background = OledDarkBackground,
+    onBackground = OledDarkOnSurface,
+    surface = OledDarkSurface,
+    onSurface = OledDarkOnSurface,
+    surfaceVariant = OledDarkSurfaceVariant,
+    onSurfaceVariant = OledDarkOnSurfaceVariant,
+    outline = OledDarkOutline,
+    outlineVariant = OledDarkOutlineVariant,
+    error = OledDarkError,
+    onError = OledDarkOnError,
+    errorContainer = OledDarkErrorContainer,
+    onErrorContainer = OledDarkOnErrorContainer,
+)
+
 @Composable
 fun BastionTheme(
     colorMode: ColorMode = ColorMode.DARK,
@@ -95,15 +137,16 @@ fun BastionTheme(
 ) {
     val resolvedDark = when (colorMode) {
         ColorMode.SYSTEM -> isSystemInDarkTheme()
-        ColorMode.DARK -> true
+        ColorMode.DARK, ColorMode.STITCH_GREEN, ColorMode.MONOKAI, ColorMode.OLED_DARK -> true
         ColorMode.LIGHT -> false
-        ColorMode.MONOKAI -> true
     }
     val colorScheme = when (colorMode) {
-        ColorMode.MONOKAI -> MonokaiColorScheme
-        ColorMode.DARK -> StitchDarkColorScheme
+        ColorMode.DARK -> NeutralDarkColorScheme
+        ColorMode.STITCH_GREEN -> StitchGreenColorScheme
         ColorMode.LIGHT -> StitchLightColorScheme
-        ColorMode.SYSTEM -> if (isSystemInDarkTheme()) StitchDarkColorScheme else StitchLightColorScheme
+        ColorMode.MONOKAI -> MonokaiColorScheme
+        ColorMode.OLED_DARK -> OledDarkColorScheme
+        ColorMode.SYSTEM -> if (isSystemInDarkTheme()) NeutralDarkColorScheme else StitchLightColorScheme
     }
     val view = LocalView.current
     if (!view.isInEditMode) {

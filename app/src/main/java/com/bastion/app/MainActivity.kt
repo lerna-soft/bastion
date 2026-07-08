@@ -3,29 +3,45 @@ package com.bastion.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.launch
 import androidx.navigation.compose.rememberNavController
 import com.bastion.app.logging.RemoteLogger
 import com.bastion.app.update.UpdateChecker
 import com.bastion.app.ui.BastionNavGraph
 import com.bastion.app.ui.theme.BastionTheme
 import com.bastion.app.ui.theme.ColorMode
+import com.bastion.app.ui.theme.StitchOnSurfaceVariant
+import com.bastion.app.ui.theme.StitchPrimaryContainer
+import com.bastion.app.ui.theme.StitchSurfaceContainerHighest
 
 class MainActivity : ComponentActivity() {
     private val log = RemoteLogger.logger("MainActivity")
@@ -34,32 +50,36 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         log.i("onCreate")
 
-        lifecycle.addObserver(LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_CREATE -> log.i("lifecycle CREATE")
-                Lifecycle.Event.ON_START -> log.i("lifecycle START")
-                Lifecycle.Event.ON_RESUME -> log.i("lifecycle RESUME")
-                Lifecycle.Event.ON_PAUSE -> log.i("lifecycle PAUSE")
-                Lifecycle.Event.ON_STOP -> log.i("lifecycle STOP")
-                Lifecycle.Event.ON_DESTROY -> log.i("lifecycle DESTROY")
-                Lifecycle.Event.ON_ANY -> {}
-            }
-        })
-
-        enableEdgeToEdge()
-
         val app = application as BastionApp
 
         setContent {
             var colorMode by remember { mutableStateOf(ColorMode.DARK) }
+            val scope = rememberCoroutineScope()
+
+            LaunchedEffect(Unit) {
+                val settings = app.repository.getSettings()
+                val saved = try { ColorMode.valueOf(settings.colorMode) } catch (_: Exception) { ColorMode.DARK }
+                colorMode = saved
+            }
+
             BastionTheme(colorMode = colorMode) {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.systemBars)
+                ) {
                     val navController = rememberNavController()
                     BastionNavGraph(
                         navController = navController,
                         repository = app.repository,
                         colorMode = colorMode,
-                        onColorModeChange = { colorMode = it }
+                        onColorModeChange = {
+                            colorMode = it
+                            scope.launch {
+                                val s = app.repository.getSettings()
+                                app.repository.saveSettings(s.copy(colorMode = it.name))
+                            }
+                        }
                     )
                 }
 
@@ -90,14 +110,50 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     is UpdateState.Downloading -> {
+                        val progress = state.progress
+                        val totalMb = state.info.fileSize / (1024f * 1024f)
+                        val downloadedMb = (state.info.fileSize * progress / 100f) / (1024f * 1024f)
                         AlertDialog(
                             onDismissRequest = {},
-                            title = { Text("Downloading update...") },
-                            text = {
-                                LinearProgressIndicator(
-                                    progress = { state.progress / 100f },
-                                    modifier = Modifier.fillMaxSize()
+                            title = {
+                                Text(
+                                    text = "Downloading update...",
+                                    fontWeight = FontWeight.Bold
                                 )
+                            },
+                            text = {
+                                Column {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .background(StitchSurfaceContainerHighest, RoundedCornerShape(3.dp))
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth(progress / 100f)
+                                                .fillMaxHeight()
+                                                .background(StitchPrimaryContainer, RoundedCornerShape(3.dp))
+                                        )
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "${String.format("%.0f", progress)}%",
+                                            color = StitchPrimaryContainer,
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "${String.format("%.1f", downloadedMb)} / ${String.format("%.1f", totalMb)} MB",
+                                            color = StitchOnSurfaceVariant,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
                             },
                             confirmButton = {}
                         )

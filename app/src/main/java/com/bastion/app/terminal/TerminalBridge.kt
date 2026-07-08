@@ -49,6 +49,12 @@ class TerminalBridge(private val webView: WebView) {
         }
     }
 
+    fun setFontSize(size: Int) {
+        webView.post {
+            webView.evaluateJavascript("setFontSize($size)", null)
+        }
+    }
+
     fun sendText(text: String) {
         val escaped = text.replace("\\", "\\\\").replace("'", "\\'")
         webView.post {
