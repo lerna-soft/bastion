@@ -221,6 +221,20 @@ class BastionApp : Application() {
         else -> "OTHER"
     }
 
+    /**
+     * Igual que checkForUpdate() pero solo si no hay un update en curso (Checking/Available/
+     * Downloading/Ready) — para llamarla en cada onResume sin interrumpir un update a medias.
+     * checkForUpdate() por sí sola solo corre una vez, en Application.onCreate() (arranque del
+     * PROCESO). Con el proceso ahora estable (keepalive + foreground service), reabrir la app no
+     * siempre significa un proceso nuevo, así que sin esto el chequeo nunca se repetía (HIM-014).
+     */
+    fun checkForUpdateIfIdle() {
+        when (_updateState.value) {
+            is UpdateState.Idle, is UpdateState.Error -> checkForUpdate()
+            else -> {}
+        }
+    }
+
     fun checkForUpdate() {
         _updateState.value = UpdateState.Checking
         appScope.launch {
