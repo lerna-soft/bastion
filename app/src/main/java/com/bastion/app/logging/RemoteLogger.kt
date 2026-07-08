@@ -55,35 +55,51 @@ object RemoteLogger {
         recentBuffer.add(RecentEntry(System.currentTimeMillis(), level, tag, msg))
     }
 
-    // --- Crash log access for the in-app Logs screen ---
+    // --- Incident access for the in-app Logs screen ---
+    //
+    // Two sources: bastion_crash.log (JVM uncaught exception, escrito por el uncaught handler) y
+    // bastion_last_exit.log (motivo del sistema: crash nativo, OOM, ANR — escrito al arrancar desde
+    // ApplicationExitInfo). Un "seen marker" único cubre ambos.
 
     private fun crashFile(): File? = dataDir?.let { File(it, "bastion_crash.log") }
-    private fun crashSeenFile(): File? = dataDir?.let { File(it, "bastion_crash.seen") }
+    private fun lastExitFile(): File? = dataDir?.let { File(it, "bastion_last_exit.log") }
+    private fun seenFile(): File? = dataDir?.let { File(it, "bastion_incident.seen") }
 
-    /** Full text of the last persisted crash, or null if there is none. */
-    fun readCrashLog(): String? {
-        val f = crashFile() ?: return null
+    private fun readFileOrNull(f: File?): String? {
+        if (f == null) return null
         return try { if (f.exists() && f.length() > 0) f.readText(Charsets.UTF_8) else null }
         catch (_: Exception) { null }
     }
 
+    /** Full text of the last JVM crash (bastion_crash.log), or null. */
+    fun readCrashLog(): String? = readFileOrNull(crashFile())
+
+    /** System-reported reason for the last process death (native crash / OOM / ANR), or null. */
+    fun readLastExit(): String? = readFileOrNull(lastExitFile())
+
+    private fun incidentSignature(): String {
+        val c = crashFile()?.let { if (it.exists()) it.lastModified() else 0L } ?: 0L
+        val e = lastExitFile()?.let { if (it.exists()) it.lastModified() else 0L } ?: 0L
+        return "$c:$e"
+    }
+
     fun clearCrashLog() {
-        try { crashFile()?.delete(); crashSeenFile()?.delete() } catch (_: Exception) { }
+        try { crashFile()?.delete(); lastExitFile()?.delete(); seenFile()?.delete() } catch (_: Exception) { }
         recentBuffer.clear()
     }
 
-    /** True when a crash log exists that the user has not acknowledged yet. */
-    fun hasUnseenCrash(): Boolean {
-        val f = crashFile() ?: return false
-        if (!f.exists() || f.length() == 0L) return false
-        val seen = crashSeenFile() ?: return true
-        return try { !seen.exists() || seen.readText().trim() != f.lastModified().toString() }
+    /** True when there is a crash or abnormal-exit record the user has not acknowledged yet. */
+    fun hasUnseenIncident(): Boolean {
+        val hasCrash = crashFile()?.let { it.exists() && it.length() > 0L } ?: false
+        val hasExit = lastExitFile()?.let { it.exists() && it.length() > 0L } ?: false
+        if (!hasCrash && !hasExit) return false
+        val seen = seenFile() ?: return true
+        return try { !seen.exists() || seen.readText().trim() != incidentSignature() }
         catch (_: Exception) { true }
     }
 
-    fun markCrashSeen() {
-        val f = crashFile() ?: return
-        try { if (f.exists()) crashSeenFile()?.writeText(f.lastModified().toString()) } catch (_: Exception) { }
+    fun markIncidentsSeen() {
+        try { seenFile()?.writeText(incidentSignature()) } catch (_: Exception) { }
     }
 
     fun init(url: String = serverUrl, filesDir: File? = null) {

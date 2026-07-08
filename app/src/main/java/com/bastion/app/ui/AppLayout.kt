@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -185,7 +186,7 @@ fun AppLayout(
     var searchQuery by remember { mutableStateOf("") }
     var showStats by remember { mutableStateOf(false) }
     var showHostPicker by remember { mutableStateOf(false) }
-    var showCrashNotice by remember { mutableStateOf(RemoteLogger.hasUnseenCrash()) }
+    var showCrashNotice by remember { mutableStateOf(RemoteLogger.hasUnseenIncident()) }
     val allHosts by repository.getAllHosts().collectAsState(initial = emptyList())
     val anySessionActive = terminalSessions.any {
         val s = it.session.state.value
@@ -295,24 +296,24 @@ fun AppLayout(
 
     if (showCrashNotice) {
         AlertDialog(
-            onDismissRequest = { RemoteLogger.markCrashSeen(); showCrashNotice = false },
+            onDismissRequest = { RemoteLogger.markIncidentsSeen(); showCrashNotice = false },
             title = { Text("La app se cerró la última vez") },
             text = {
                 Text(
-                    "Se registró un cierre inesperado. Puedes ver el detalle (stack trace) en la sección Logs.",
+                    "Se registró un cierre inesperado (crash o cierre del sistema). Puedes ver el motivo y el detalle en la sección Logs.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
-                    RemoteLogger.markCrashSeen()
+                    RemoteLogger.markIncidentsSeen()
                     showCrashNotice = false
                     selectedSection = NavSection.LOGS
                 }) { Text("Ver detalles") }
             },
             dismissButton = {
-                TextButton(onClick = { RemoteLogger.markCrashSeen(); showCrashNotice = false }) {
+                TextButton(onClick = { RemoteLogger.markIncidentsSeen(); showCrashNotice = false }) {
                     Text("Cerrar")
                 }
             }
@@ -398,11 +399,13 @@ private fun LogsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var refreshTick by remember { mutableStateOf(0) }
     val crash = remember(refreshTick) { RemoteLogger.readCrashLog() }
+    val lastExit = remember(refreshTick) { RemoteLogger.readLastExit() }
     val recent = remember(refreshTick) { RemoteLogger.recentLogs() }
     val fmt = remember { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US) }
 
     fun fullText(): String {
         val sb = StringBuilder()
+        if (lastExit != null) sb.append(lastExit).append("\n\n")
         if (crash != null) sb.append("=== LAST CRASH ===\n").append(crash).append("\n\n")
         sb.append("=== RECENT (${recent.size}) ===\n")
         recent.forEach { sb.append("${fmt.format(java.util.Date(it.timeMillis))} ${it.level}/${it.tag}: ${it.msg}\n") }
@@ -443,7 +446,29 @@ private fun LogsScreen(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(8.dp))
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Text(
-                "Último crash",
+                "Último cierre del sistema",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(4.dp))
+            if (lastExit == null) {
+                Text(
+                    "Sin cierres anormales registrados (o Android < 11).",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp
+                )
+            } else {
+                Text(
+                    lastExit,
+                    color = MaterialTheme.colorScheme.error,
+                    fontSize = 11.sp,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Último crash (excepción Java)",
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
@@ -451,7 +476,7 @@ private fun LogsScreen(modifier: Modifier = Modifier) {
             Spacer(Modifier.height(4.dp))
             if (crash == null) {
                 Text(
-                    "Sin crashes registrados.",
+                    "Sin crashes de excepción registrados.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 13.sp
                 )
@@ -529,23 +554,35 @@ private fun Sidebar(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                    contentAlignment = Alignment.Center
+                // Hamburger: colapsa/expande el sidebar.
+                IconButton(
+                    onClick = { collapsed = !collapsed },
+                    modifier = Modifier.size(32.dp)
                 ) {
-                    Text(
-                        text = "B",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = if (collapsed) "Expandir menú" else "Colapsar menú",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
                 if (!collapsed) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "B",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     Column {
                         Text(
                             text = "Bastion",

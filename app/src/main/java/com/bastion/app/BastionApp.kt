@@ -53,6 +53,10 @@ class BastionApp : Application() {
         RemoteLogger.init(filesDir = filesDir)
         RemoteLogger.i("BastionApp", "START v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) device=${android.os.Build.MODEL} sdk=${android.os.Build.VERSION.SDK_INT}")
 
+        // Por qué murió el proceso la última vez. Captura crashes NATIVOS, OOM y ANR — que el
+        // handler de excepciones de la JVM NO puede ver. Sobrevive al reinicio (lo da el sistema).
+        logLastExitReason()
+
         try {
             java.security.Security.removeProvider("BC")
         } catch (_: Exception) { }
@@ -105,6 +109,63 @@ class BastionApp : Application() {
         }
 
         checkForUpdate()
+    }
+
+    /**
+     * Consulta al sistema por qué murió el proceso la última vez (API 30+). Esto captura crashes
+     * nativos (SIGSEGV), OOM (LOW_MEMORY / SIGNALED) y ANR, que NO pasan por el uncaught handler
+     * de la JVM. Si el último cierre fue anormal, lo persiste en bastion_last_exit.log para que la
+     * pantalla de Logs lo muestre, y lo registra en el servidor.
+     */
+    private fun logLastExitReason() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return
+        try {
+            val am = getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val exits = am.getHistoricalProcessExitReasons(packageName, 0, 3)
+            if (exits.isEmpty()) return
+            val last = exits[0]
+            val reason = exitReasonName(last.reason)
+            val summary = "last exit: $reason (status=${last.status}, importance=${last.importance}) — ${last.description}"
+            RemoteLogger.i("ExitInfo", summary)
+
+            val cleanExit = last.reason == android.app.ApplicationExitInfo.REASON_USER_REQUESTED ||
+                last.reason == android.app.ApplicationExitInfo.REASON_EXIT_SELF
+            if (!cleanExit) {
+                RemoteLogger.e("ExitInfo", "cierre anormal: $reason — ${last.description}")
+                try {
+                    val sb = StringBuilder()
+                    sb.append("=== ÚLTIMO CIERRE DEL SISTEMA ===\n")
+                    sb.append("Motivo: $reason\n")
+                    sb.append("Descripción: ${last.description}\n")
+                    sb.append("status=${last.status} importance=${last.importance}\n")
+                    sb.append("timestamp=${last.timestamp}\n")
+                    // ANR y crash nativo traen traza del sistema (API 31+).
+                    try {
+                        last.traceInputStream?.bufferedReader()?.use { r ->
+                            sb.append("\n--- Traza del sistema ---\n").append(r.readText())
+                        }
+                    } catch (_: Exception) { }
+                    File(filesDir, "bastion_last_exit.log").writeText(sb.toString())
+                } catch (_: Exception) { }
+            }
+        } catch (e: Exception) {
+            RemoteLogger.w("ExitInfo", "getHistoricalProcessExitReasons falló: ${e.message}")
+        }
+    }
+
+    private fun exitReasonName(reason: Int): String = when (reason) {
+        android.app.ApplicationExitInfo.REASON_ANR -> "ANR (app no responde)"
+        android.app.ApplicationExitInfo.REASON_CRASH -> "CRASH (excepción Java)"
+        android.app.ApplicationExitInfo.REASON_CRASH_NATIVE -> "CRASH NATIVO"
+        android.app.ApplicationExitInfo.REASON_LOW_MEMORY -> "MEMORIA BAJA (OOM del sistema)"
+        android.app.ApplicationExitInfo.REASON_SIGNALED -> "SEÑAL (killed, p.ej. OOM)"
+        android.app.ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "USO EXCESIVO DE RECURSOS"
+        android.app.ApplicationExitInfo.REASON_DEPENDENCY_DIED -> "DEPENDENCIA MURIÓ"
+        android.app.ApplicationExitInfo.REASON_OTHER -> "OTRO"
+        android.app.ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "FALLO DE INICIALIZACIÓN"
+        android.app.ApplicationExitInfo.REASON_USER_REQUESTED -> "USUARIO (cierre normal)"
+        android.app.ApplicationExitInfo.REASON_EXIT_SELF -> "SALIDA PROPIA"
+        else -> "DESCONOCIDO ($reason)"
     }
 
     fun checkForUpdate() {
