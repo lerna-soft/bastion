@@ -1,5 +1,6 @@
 package com.bastion.app.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,13 +36,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -49,11 +53,17 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bastion.app.data.AuthType
+import com.bastion.app.data.Host
+import com.bastion.app.data.VaultRepository
+import com.bastion.app.logging.RemoteLogger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun HostEditScreen(
     hostId: Long?,
-    repository: com.bastion.app.data.VaultRepository,
+    repository: VaultRepository,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -67,15 +77,84 @@ fun HostEditScreen(
     var authType by remember { mutableStateOf(AuthType.PASSWORD) }
     var showPassword by remember { mutableStateOf(false) }
     var showPassphrase by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var hostnameError by remember { mutableStateOf(false) }
+    var usernameError by remember { mutableStateOf(false) }
+    var portError by remember { mutableStateOf(false) }
 
     val isEdit = hostId != null
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val log = remember { RemoteLogger.logger("HostEdit") }
+
+    if (isEdit && hostId != null) {
+        LaunchedEffect(hostId) {
+            isLoading = true
+            val existing = withContext(Dispatchers.IO) {
+                repository.getHostWithSecret(hostId)
+            }
+            if (existing != null) {
+                serverName = existing.host.name
+                hostname = existing.host.hostname
+                port = existing.host.port.toString()
+                username = existing.host.username
+                authType = existing.host.authType
+                password = existing.password ?: ""
+                privateKey = existing.privateKeyPem ?: ""
+                passphrase = existing.privateKeyPassphrase ?: ""
+            }
+            isLoading = false
+        }
+    }
+
+    fun validate(): Boolean {
+        val result = HostValidator.validate(hostname, username, port)
+        hostnameError = result.hostnameError
+        usernameError = result.usernameError
+        portError = result.portError
+        return result.isValid
+    }
+
+    fun save(): Long? {
+        if (!validate()) return null
+        val portNum = port.toIntOrNull() ?: 22
+        val host = Host(
+            id = hostId ?: 0L,
+            name = serverName.ifBlank { hostname },
+            hostname = hostname.trim(),
+            port = portNum,
+            username = username.trim(),
+            authType = authType
+        )
+        var savedId: Long? = null
+        scope.launch {
+            isLoading = true
+            try {
+                savedId = withContext(Dispatchers.IO) {
+                    repository.saveHost(host, password, privateKey, passphrase)
+                }
+                log.i("saved host id=$savedId")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Server saved: ${hostname.trim()}", Toast.LENGTH_SHORT).show()
+                }
+                onNavigateBack()
+            } catch (e: Exception) {
+                log.e("save failed", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                isLoading = false
+            }
+        }
+        return savedId
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFF0F1417))
     ) {
-        // Header
         Box(Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
             Row(
                 modifier = Modifier
@@ -99,7 +178,9 @@ fun HostEditScreen(
                     fontWeight = FontWeight.Medium
                 )
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = { }) {
+                IconButton(onClick = {
+                    Toast.makeText(context, "Fill in host details and save", Toast.LENGTH_SHORT).show()
+                }) {
                     Icon(
                         Icons.Default.Info,
                         contentDescription = "Info",
@@ -118,7 +199,6 @@ fun HostEditScreen(
         ) {
             Spacer(Modifier.height(16.dp))
 
-            // Shield Icon
             Icon(
                 Icons.Default.Shield,
                 contentDescription = null,
@@ -128,7 +208,6 @@ fun HostEditScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // Server Name
             StitchTextField(
                 label = "SERVER NAME",
                 value = serverName,
@@ -138,7 +217,6 @@ fun HostEditScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Hostname + Port Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -146,28 +224,33 @@ fun HostEditScreen(
                 StitchTextField(
                     label = "HOSTNAME",
                     value = hostname,
-                    onValueChange = { hostname = it },
+                    onValueChange = { hostname = it; hostnameError = false },
                     placeholder = "web-01.example.com",
+                    isError = hostnameError,
+                    errorMessage = "Required",
                     modifier = Modifier.weight(1f)
                 )
                 StitchTextField(
                     label = "PORT",
                     value = port,
-                    onValueChange = { port = it },
+                    onValueChange = { port = it; portError = false },
                     placeholder = "22",
                     keyboardType = KeyboardType.Number,
+                    isError = portError,
+                    errorMessage = "1-65535",
                     modifier = Modifier.width(80.dp)
                 )
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // Username
             StitchTextField(
                 label = "USERNAME",
                 value = username,
-                onValueChange = { username = it },
+                onValueChange = { username = it; usernameError = false },
                 placeholder = "root",
+                isError = usernameError,
+                errorMessage = "Required",
                 leadingIcon = {
                     Icon(
                         Icons.Default.Person,
@@ -180,7 +263,6 @@ fun HostEditScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // Auth Type Toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -201,7 +283,6 @@ fun HostEditScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Password or Private Key field
             if (authType == AuthType.PASSWORD) {
                 StitchTextField(
                     label = "PASSWORD",
@@ -233,9 +314,9 @@ fun HostEditScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // Connect Button
             Button(
-                onClick = { },
+                onClick = { save() },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -245,7 +326,7 @@ fun HostEditScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    "Connect",
+                    if (isLoading) "Saving..." else "Connect",
                     color = Color(0xFF003548),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
@@ -254,9 +335,9 @@ fun HostEditScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // Save Button
             OutlinedButton(
-                onClick = { },
+                onClick = { save() },
+                enabled = !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -266,7 +347,7 @@ fun HostEditScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    "SAVE CONFIGURATION",
+                    if (isLoading) "Saving..." else "SAVE CONFIGURATION",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -288,12 +369,14 @@ private fun StitchTextField(
     isPassword: Boolean = false,
     showPassword: Boolean = false,
     onTogglePassword: (() -> Unit)? = null,
-    leadingIcon: @Composable (() -> Unit)? = null
+    leadingIcon: @Composable (() -> Unit)? = null,
+    isError: Boolean = false,
+    errorMessage: String = ""
 ) {
     Column(modifier = modifier) {
         Text(
             label,
-            color = Color(0xFF8E9192),
+            color = if (isError) Color(0xFFFFB4AB) else Color(0xFF8E9192),
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             letterSpacing = 0.5.sp
@@ -310,6 +393,10 @@ private fun StitchTextField(
                     fontSize = 14.sp
                 )
             },
+            isError = isError,
+            supportingText = if (isError) {
+                { Text(errorMessage, color = Color(0xFFFFB4AB), fontSize = 11.sp) }
+            } else null,
             leadingIcon = leadingIcon,
             trailingIcon = if (isPassword && onTogglePassword != null) {
                 {
@@ -331,12 +418,14 @@ private fun StitchTextField(
             singleLine = true,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFF75D1FF),
-                unfocusedBorderColor = Color(0xFF1E2020),
+                unfocusedBorderColor = if (isError) Color(0xFFFFB4AB) else Color(0xFF1E2020),
                 focusedContainerColor = Color(0xFF1E2020),
                 unfocusedContainerColor = Color(0xFF1E2020),
                 focusedTextColor = Color(0xFFE2E2E2),
                 unfocusedTextColor = Color(0xFFE2E2E2),
-                cursorColor = Color(0xFF75D1FF)
+                cursorColor = Color(0xFF75D1FF),
+                errorBorderColor = Color(0xFFFFB4AB),
+                errorContainerColor = Color(0xFF1E2020)
             ),
             shape = RoundedCornerShape(8.dp)
         )

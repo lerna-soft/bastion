@@ -3,6 +3,8 @@ package com.bastion.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,9 +42,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,38 +58,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bastion.app.data.SshKey
+import com.bastion.app.data.VaultRepository
 import com.bastion.app.ui.theme.StitchOnSurface
 import com.bastion.app.ui.theme.StitchOnSurfaceVariant
 import com.bastion.app.ui.theme.StitchOutlineVariant
 import com.bastion.app.ui.theme.StitchPrimary
 import com.bastion.app.ui.theme.StitchSecondary
-
-private data class SshKeyEntry(
-    val name: String,
-    val type: String,
-    val fingerprint: String,
-    val servers: List<String>,
-    val created: String,
-    val lastUsed: String,
-    val isActive: Boolean
-)
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun SSHKeysContent(
+    repository: VaultRepository,
     searchQuery: String = "",
     onSearchChange: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val keys by repository.getAllSshKeys().collectAsState(initial = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
-    var deleteTarget by remember { mutableStateOf<SshKeyEntry?>(null) }
-    var editTarget by remember { mutableStateOf<SshKeyEntry?>(null) }
-    var keys by remember { mutableStateOf(defaultSampleKeys()) }
+    var deleteTarget by remember { mutableStateOf<SshKey?>(null) }
+    var editTarget by remember { mutableStateOf<SshKey?>(null) }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val filteredKeys = if (searchQuery.isBlank()) keys
     else keys.filter { it.name.contains(searchQuery, ignoreCase = true) ||
-        it.fingerprint.contains(searchQuery, ignoreCase = true) ||
-        it.servers.any { s -> s.contains(searchQuery, ignoreCase = true) } }
+        it.fingerprint.contains(searchQuery, ignoreCase = true) }
 
     Column(
         modifier = modifier
@@ -93,6 +96,8 @@ fun SSHKeysContent(
             .background(MaterialTheme.colorScheme.background)
     ) {
         HeaderSection(
+            keyCount = keys.size,
+            activeCount = keys.count { it.isActive },
             onAddKey = { showAddDialog = true }
         )
         TableSection(
@@ -106,25 +111,21 @@ fun SSHKeysContent(
             onDelete = { deleteTarget = it }
         )
         Spacer(Modifier.height(24.dp))
-        StatsRow()
+        StatsRow(keyCount = keys.size, activeCount = keys.count { it.isActive })
     }
 
     if (showAddDialog) {
         AddKeyDialog(
             onDismiss = { showAddDialog = false },
             onConfirm = { name, type ->
-                val newKey = SshKeyEntry(
-                    name = name,
-                    type = type,
-                    fingerprint = "SHA256:new:key:...generated",
-                    servers = emptyList(),
-                    created = "Just now",
-                    lastUsed = "Now",
-                    isActive = true
-                )
-                keys = listOf(newKey) + keys
-                showAddDialog = false
-                Toast.makeText(context, "SSH key added: $name", Toast.LENGTH_SHORT).show()
+                scope.launch {
+                    val fingerprint = withContext(Dispatchers.IO) {
+                        "SHA256:${name.lowercase().replace(" ", "")}:${System.currentTimeMillis().toString().takeLast(8)}"
+                    }
+                    repository.addSshKey(name.trim(), type.trim(), fingerprint, "")
+                    showAddDialog = false
+                    Toast.makeText(context, "SSH key added: $name", Toast.LENGTH_SHORT).show()
+                }
             }
         )
     }
@@ -141,9 +142,11 @@ fun SSHKeysContent(
             confirmButton = {
                 TextButton(onClick = {
                     if (newName.isNotBlank()) {
-                        keys = keys.map { if (it.name == key.name) it.copy(name = newName.trim()) else it }
-                        editTarget = null
-                        Toast.makeText(context, "Key renamed: ${key.name} \u2192 ${newName.trim()}", Toast.LENGTH_SHORT).show()
+                        scope.launch {
+                            repository.renameSshKey(key.id, newName.trim())
+                            editTarget = null
+                            Toast.makeText(context, "Key renamed: ${key.name} \u2192 ${newName.trim()}", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }) { Text("Save") }
             },
@@ -158,9 +161,11 @@ fun SSHKeysContent(
             text = { Text("Are you sure you want to delete \"${key.name}\"? This action cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
-                    keys = keys.filter { it.name != key.name }
-                    deleteTarget = null
-                    Toast.makeText(context, "Key deleted: ${key.name}", Toast.LENGTH_SHORT).show()
+                    scope.launch {
+                        repository.deleteSshKey(key.id)
+                        deleteTarget = null
+                        Toast.makeText(context, "Key deleted: ${key.name}", Toast.LENGTH_SHORT).show()
+                    }
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
@@ -170,17 +175,28 @@ fun SSHKeysContent(
     }
 }
 
-private fun defaultSampleKeys(): List<SshKeyEntry> = listOf(
-    SshKeyEntry("prod-deploy-key", "RSA 4096", "SHA256:f1:2a:b3:d4...c5",
-        listOf("us-east-web-01", "us-east-db-02"), "Oct 12, 2023", "2m ago", true),
-    SshKeyEntry("backup-sync", "Ed25519", "SHA256:e9:2a:b3:d4...z0",
-        listOf("backup-vault-01"), "Aug 24, 2023", "4d ago", false),
-    SshKeyEntry("dev-macbook", "Ed25519", "SHA256:d5:1a:b3:d4...w2",
-        listOf("staging-k8s", "dev-cluster-01"), "Jan 05, 2024", "12h ago", false),
-)
+private fun formatDate(millis: Long): String {
+    val sdf = SimpleDateFormat("MMM dd, yyyy", Locale.US)
+    return sdf.format(Date(millis))
+}
+
+private fun formatLastUsed(millis: Long): String {
+    val diff = System.currentTimeMillis() - millis
+    val minutes = diff / 60000
+    val hours = minutes / 60
+    val days = hours / 24
+    return when {
+        minutes < 1 -> "Just now"
+        minutes < 60 -> "${minutes}m ago"
+        hours < 24 -> "${hours}h ago"
+        else -> "${days}d ago"
+    }
+}
 
 @Composable
 private fun HeaderSection(
+    keyCount: Int,
+    activeCount: Int,
     onAddKey: () -> Unit
 ) {
     Column(
@@ -239,7 +255,7 @@ private fun HeaderSection(
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = "4 Active",
+                        text = "$activeCount Active",
                         color = StitchSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -318,10 +334,10 @@ private fun AddKeyDialog(
 
 @Composable
 private fun TableSection(
-    keys: List<SshKeyEntry>,
-    onCopy: (SshKeyEntry) -> Unit,
-    onEdit: (SshKeyEntry) -> Unit,
-    onDelete: (SshKeyEntry) -> Unit
+    keys: List<SshKey>,
+    onCopy: (SshKey) -> Unit,
+    onEdit: (SshKey) -> Unit,
+    onDelete: (SshKey) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -371,10 +387,10 @@ private fun TableHeader() {
 
 @Composable
 private fun KeyRow(
-    key: SshKeyEntry,
-    onCopy: (SshKeyEntry) -> Unit,
-    onEdit: (SshKeyEntry) -> Unit,
-    onDelete: (SshKeyEntry) -> Unit
+    key: SshKey,
+    onCopy: (SshKey) -> Unit,
+    onEdit: (SshKey) -> Unit,
+    onDelete: (SshKey) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -404,27 +420,28 @@ private fun KeyRow(
         }
 
         Row(modifier = Modifier.weight(1.2f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            key.servers.take(2).forEach { server ->
+            val serverList = key.servers.split(",").filter { it.isNotBlank() }
+            serverList.take(2).forEach { server ->
                 Box(modifier = Modifier.clip(RoundedCornerShape(4.dp))
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .border(0.5.dp, StitchOutlineVariant, RoundedCornerShape(4.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp)) {
-                    Text(server, color = StitchOnSurfaceVariant, fontSize = 10.sp)
+                    Text(server.trim(), color = StitchOnSurfaceVariant, fontSize = 10.sp)
                 }
             }
-            if (key.servers.size > 2) {
-                Text("+${key.servers.size - 2}", color = StitchOnSurfaceVariant, fontSize = 10.sp)
+            if (serverList.size > 2) {
+                Text("+${serverList.size - 2}", color = StitchOnSurfaceVariant, fontSize = 10.sp)
             }
         }
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(key.created, color = StitchOnSurface, fontSize = 14.sp)
+            Text(formatDate(key.created), color = StitchOnSurface, fontSize = 14.sp)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (key.isActive) {
                     Box(modifier = Modifier.size(6.dp).clip(RoundedCornerShape(3.dp)).background(StitchSecondary))
-                    Text("Used ${key.lastUsed}", color = StitchSecondary, fontSize = 11.sp)
+                    Text("Used ${formatLastUsed(key.lastUsed)}", color = StitchSecondary, fontSize = 11.sp)
                 } else {
-                    Text("Used ${key.lastUsed}", color = StitchOnSurfaceVariant, fontSize = 11.sp)
+                    Text("Used ${formatLastUsed(key.lastUsed)}", color = StitchOnSurfaceVariant, fontSize = 11.sp)
                 }
             }
         }
@@ -448,7 +465,7 @@ private fun KeyRow(
 }
 
 @Composable
-private fun StatsRow() {
+private fun StatsRow(keyCount: Int, activeCount: Int) {
     val context = LocalContext.current
 
     Row(
@@ -456,22 +473,24 @@ private fun StatsRow() {
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         StatCard(
-            title = "SECURITY STATUS", value = "98%", valueColor = StitchSecondary,
-            subtitle = "All keys are compliant with RSA 4096 or Ed25519 standards.",
+            title = "TOTAL KEYS", value = "$keyCount Keys", valueColor = StitchSecondary,
+            subtitle = "$activeCount active, ${keyCount - activeCount} inactive.",
+            icon = Icons.Filled.VpnKey, modifier = Modifier.weight(1f)
+        )
+        StatCard(
+            title = "ACTIVE KEYS", value = "$activeCount Active", valueColor = StitchPrimary,
+            subtitle = "Keys currently in use for SSH connections.",
             icon = Icons.Filled.VerifiedUser, modifier = Modifier.weight(1f)
         )
         StatCard(
-            title = "RECENT ROTATION", value = "2 Keys", valueColor = StitchPrimary,
-            subtitle = "Successfully rotated in the last 30 days.",
-            icon = Icons.Filled.Sync, modifier = Modifier.weight(1f)
-        )
-        StatCard(
-            title = "KEY USAGE LOG", value = "245 Events", valueColor = StitchPrimary,
-            subtitle = "View detailed audit logs of all SSH authentication attempts.",
+            title = "KEY USAGE LOG", value = "$keyCount Total", valueColor = StitchPrimary,
+            subtitle = "Manage your SSH key infrastructure.",
             icon = Icons.Filled.History, modifier = Modifier.weight(1f),
             linkText = "View Audit History",
             onLinkClick = {
-                Toast.makeText(context, "Opening Audit History...", Toast.LENGTH_SHORT).show()
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/security"))
+                )
             }
         )
     }

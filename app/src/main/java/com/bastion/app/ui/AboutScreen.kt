@@ -1,6 +1,9 @@
 package com.bastion.app.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -156,15 +160,24 @@ fun AboutScreen(
             Spacer(Modifier.height(32.dp))
 
             // Footer Links
-            FooterLink("Privacy Policy")
-            FooterLink("Terms of Service")
-            FooterLink("Security Audit")
+            FooterLink(
+                "Privacy Policy",
+                "https://github.com/lerna-admin/bastion/wiki/Privacy"
+            )
+            FooterLink(
+                "Terms of Service",
+                "https://github.com/lerna-admin/bastion/wiki/Terms"
+            )
+            FooterLink(
+                "Security Audit",
+                "https://github.com/lerna-admin/bastion/security"
+            )
 
             Spacer(Modifier.height(24.dp))
 
             // Copyright
             Text(
-                "© 2026 Bastion Systems. All rights reserved.",
+                "\u00A9 2026 Bastion Core Technologies Inc. All Rights Reserved.",
                 color = Color(0xFF444748),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center
@@ -260,7 +273,9 @@ private fun FeaturesSection() {
 }
 
 @Composable
-private fun FooterLink(text: String) {
+private fun FooterLink(text: String, url: String = "") {
+    val context = LocalContext.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -273,10 +288,17 @@ private fun FooterLink(text: String) {
             color = Color(0xFF1E2020)
         )
     }
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable {
+                if (url.isNotBlank()) {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    )
+                }
+            }
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

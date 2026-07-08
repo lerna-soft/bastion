@@ -18,6 +18,11 @@ class VaultRepository(
 ) {
     private val log = RemoteLogger.logger("VaultRepo")
     private val dao = db.hostDao()
+    private val settingsDao = db.appSettingsDao()
+    private val sshKeyDao = db.sshKeyDao()
+    private val apiKeyDao = db.apiKeyDao()
+
+    // ── Hosts ──────────────────────────────────────────────
 
     fun getAllHosts(): Flow<List<Host>> = dao.getAllHosts()
 
@@ -25,10 +30,8 @@ class VaultRepository(
 
     suspend fun getHostWithSecret(id: Long): HostWithSecret? {
         val host = dao.getHostById(id) ?: return null
-        log.i("getHostWithSecret ${host.name}")
         val password = secrets.getPassword(id)
         val keyData = secrets.getPrivateKey(id)
-
         return HostWithSecret(
             host = host,
             password = password,
@@ -49,32 +52,69 @@ class VaultRepository(
             createdAt = if (host.id == 0L) now else host.createdAt
         )
         val isNew = hostToSave.id == 0L
-        log.i("saveHost ${hostToSave.name} (${if (isNew) "new" else "update"})")
-
         val hostId = if (isNew) {
             dao.insert(hostToSave)
         } else {
             dao.update(hostToSave)
             hostToSave.id
         }
-
         when (host.authType) {
-            AuthType.PASSWORD -> {
-                password?.let { secrets.savePassword(hostId, it) }
-            }
-            AuthType.PUBLIC_KEY -> {
-                secrets.savePrivateKey(hostId, privateKeyPem ?: "", privateKeyPassphrase)
-            }
+            AuthType.PASSWORD -> password?.let { secrets.savePassword(hostId, it) }
+            AuthType.PUBLIC_KEY -> secrets.savePrivateKey(hostId, privateKeyPem ?: "", privateKeyPassphrase)
             AuthType.AGENT_FORWARD -> {}
         }
-
-        log.i("saveHost done id=$hostId")
         return hostId
     }
 
     suspend fun deleteHost(id: Long) {
-        log.i("deleteHost id=$id")
         dao.deleteById(id)
         secrets.deleteSecret(id)
+    }
+
+    // ── App Settings ───────────────────────────────────────
+
+    suspend fun getSettings(): AppSettings {
+        return settingsDao.getSettings() ?: AppSettings()
+    }
+
+    suspend fun saveSettings(settings: AppSettings) {
+        settingsDao.saveSettings(settings)
+    }
+
+    // ── SSH Keys ───────────────────────────────────────────
+
+    fun getAllSshKeys(): Flow<List<SshKey>> = sshKeyDao.getAllKeys()
+
+    suspend fun addSshKey(name: String, type: String, fingerprint: String, servers: String): Long {
+        val key = SshKey(
+            name = name,
+            type = type,
+            fingerprint = fingerprint,
+            servers = servers,
+            created = System.currentTimeMillis(),
+            lastUsed = System.currentTimeMillis(),
+            isActive = true
+        )
+        return sshKeyDao.insert(key)
+    }
+
+    suspend fun renameSshKey(id: Long, name: String) {
+        sshKeyDao.rename(id, name)
+    }
+
+    suspend fun deleteSshKey(id: Long) {
+        sshKeyDao.deleteById(id)
+    }
+
+    // ── API Keys ───────────────────────────────────────────
+
+    fun getAllApiKeys(): Flow<List<ApiKey>> = apiKeyDao.getAllKeys()
+
+    suspend fun addApiKey(label: String, keyValue: String): Long {
+        return apiKeyDao.insert(ApiKey(label = label, keyValue = keyValue))
+    }
+
+    suspend fun deleteApiKey(id: Long) {
+        apiKeyDao.deleteById(id)
     }
 }

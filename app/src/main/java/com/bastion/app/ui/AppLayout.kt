@@ -1,6 +1,8 @@
 package com.bastion.app.ui
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import android.webkit.WebView
 import androidx.compose.foundation.background
@@ -18,6 +20,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.lazy.LazyRow
@@ -76,6 +81,7 @@ import com.bastion.app.ssh.AuthConfig
 import com.bastion.app.ssh.SshSession
 import com.bastion.app.ssh.loadKeyPairFromPem
 import com.bastion.app.terminal.TerminalTab
+import com.bastion.app.terminal.cleanupTerminalSession
 import com.bastion.app.ui.theme.ColorMode
 import com.bastion.app.ui.theme.StitchOnSurface
 import com.bastion.app.ui.theme.StitchOnSurfaceVariant
@@ -102,7 +108,11 @@ private data class TerminalSession(
     val id: Int,
     val title: String,
     val session: SshSession,
-    val hostId: Long
+    val hostId: Long,
+    val hostname: String = "",
+    val port: Int = 22,
+    val username: String = "",
+    val authTypeLabel: String = ""
 )
 
 @Composable
@@ -124,11 +134,25 @@ fun AppLayout(
 
     fun openTerminalSession(hostWithSecret: HostWithSecret) {
         val tabId = nextSessionId++
-        val hostname = hostWithSecret.host.name
-        RemoteLogger.i("AppLayout", "open terminal #$tabId $hostname")
+        val hostInfo = hostWithSecret.host
+        val displayName = hostInfo.name
+        RemoteLogger.i("AppLayout", "open terminal #$tabId $displayName")
         val session = SshSession()
         terminalSessions.add(
-            TerminalSession(tabId, hostname, session, hostWithSecret.host.id)
+            TerminalSession(
+                id = tabId,
+                title = displayName,
+                session = session,
+                hostId = hostInfo.id,
+                hostname = hostInfo.hostname,
+                port = hostInfo.port,
+                username = hostInfo.username,
+                authTypeLabel = when (hostInfo.authType) {
+                    com.bastion.app.data.AuthType.PASSWORD -> "Password"
+                    com.bastion.app.data.AuthType.PUBLIC_KEY -> "Public Key"
+                    com.bastion.app.data.AuthType.AGENT_FORWARD -> "Agent"
+                }
+            )
         )
         selectedSection = NavSection.SESSIONS
         scope.launch {
@@ -143,6 +167,7 @@ fun AppLayout(
         if (index < 0 || index >= terminalSessions.size) return
         val ts = terminalSessions[index]
         RemoteLogger.i("AppLayout", "close terminal #${ts.id} ${ts.title}")
+        cleanupTerminalSession(ts.session)
         webViewCache.remove(ts.session)?.destroy()
         CoroutineScope(Dispatchers.IO).launch { ts.session.close() }
         terminalSessions.removeAt(index)
@@ -166,7 +191,9 @@ fun AppLayout(
                     searchQuery = searchQuery,
                     onSearchChange = { searchQuery = it },
                     onHelp = {
-                        Toast.makeText(context, "Help & Documentation", Toast.LENGTH_SHORT).show()
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/wiki"))
+                        )
                     },
                     onNotifications = {
                         Toast.makeText(context, "No new notifications", Toast.LENGTH_SHORT).show()
@@ -202,6 +229,7 @@ fun AppLayout(
                     }
                     NavSection.SSH_KEYS -> {
                         SSHKeysContent(
+                            repository = repository,
                             searchQuery = searchQuery,
                             onSearchChange = { searchQuery = it },
                             modifier = Modifier.fillMaxSize()
@@ -209,6 +237,7 @@ fun AppLayout(
                     }
                     NavSection.SETTINGS -> {
                         SettingsContent(
+                            repository = repository,
                             colorMode = colorMode,
                             onColorModeChange = onColorModeChange,
                             modifier = Modifier.fillMaxSize()
@@ -226,9 +255,22 @@ private fun Sidebar(
     onSectionSelected: (NavSection) -> Unit,
     onNewInstance: () -> Unit
 ) {
+    val context = LocalContext.current
+    var collapsed by remember { mutableStateOf(false) }
+    val sidebarWidth by animateDpAsState(
+        targetValue = if (collapsed) 64.dp else 260.dp,
+        animationSpec = tween(300),
+        label = "sidebarWidth"
+    )
+    val contentAlpha by animateFloatAsState(
+        targetValue = if (collapsed) 0f else 1f,
+        animationSpec = tween(300),
+        label = "contentAlpha"
+    )
+
     Column(
         modifier = Modifier
-            .width(260.dp)
+            .width(sidebarWidth)
             .fillMaxHeight()
             .background(MaterialTheme.colorScheme.surface)
             .drawWithContent {
@@ -239,152 +281,183 @@ private fun Sidebar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .padding(horizontal = if (collapsed) 8.dp else 24.dp, vertical = 20.dp),
+            horizontalAlignment = if (collapsed) Alignment.CenterHorizontally else Alignment.Start
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(if (collapsed) 0.dp else 12.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(StitchPrimary),
-                    contentAlignment = Alignment.Center
+                IconButton(
+                    onClick = { collapsed = !collapsed },
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Security,
-                        contentDescription = null,
-                        tint = StitchOnSurface.copy(alpha = 0.9f),
-                        modifier = Modifier.size(18.dp)
+                        imageVector = if (collapsed) Icons.Default.Add else Icons.Default.Close,
+                        contentDescription = if (collapsed) "Expand" else "Collapse",
+                        tint = StitchOnSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-                Column {
-                    Text(
-                        text = "Bastion",
-                        color = StitchPrimary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Infrastructure Management",
-                        color = StitchOnSurfaceVariant,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
+                if (!collapsed) {
+                    Column {
+                        Text(
+                            text = "Bastion",
+                            color = StitchPrimary,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Infrastructure Management",
+                            color = StitchOnSurfaceVariant,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(if (collapsed) 16.dp else 8.dp))
 
         NavSection.entries.forEach { section ->
             SidebarNavItem(
                 icon = section.icon,
                 label = section.label,
                 isSelected = section == selectedSection,
+                collapsed = collapsed,
                 onClick = { onSectionSelected(section) }
             )
         }
 
         Spacer(Modifier.weight(1f))
 
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(StitchPrimary)
-                .clickable(onClick = onNewInstance)
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AddCircle,
-                    contentDescription = null,
-                    tint = Color(0xFF003548),
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = "New Instance",
-                    color = Color(0xFF003548),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            SidebarLinkItem(
-                icon = Icons.Default.Description,
-                label = "Documentation",
-                onClick = { }
-            )
-            SidebarLinkItem(
-                icon = Icons.AutoMirrored.Filled.Help,
-                label = "Support",
-                onClick = { }
-            )
-        }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            color = StitchOutlineVariant
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+        if (collapsed) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(StitchSurfaceContainerHigh),
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(StitchPrimary)
+                    .clickable(onClick = onNewInstance),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = null,
-                    tint = StitchOnSurfaceVariant,
+                    imageVector = Icons.Default.AddCircle,
+                    contentDescription = "New Instance",
+                    tint = Color(0xFF003548),
                     modifier = Modifier.size(20.dp)
                 )
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Admin User",
-                    color = StitchOnSurface,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(StitchPrimary)
+                    .clickable(onClick = onNewInstance)
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AddCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF003548),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "New Instance",
+                        color = Color(0xFF003548),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        if (!collapsed) {
+            Column(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                SidebarLinkItem(
+                    icon = Icons.Default.Description,
+                    label = "Documentation",
+                    onClick = {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/wiki"))
+                        )
+                    }
                 )
-                Text(
-                    text = "System Superuser",
-                    color = StitchOnSurfaceVariant,
-                    fontSize = 10.sp,
-                    letterSpacing = 1.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                SidebarLinkItem(
+                    icon = Icons.AutoMirrored.Filled.Help,
+                    label = "Support",
+                    onClick = {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/issues"))
+                        )
+                    }
                 )
             }
-            Icon(
-                imageVector = Icons.Default.Security,
-                contentDescription = null,
-                tint = StitchPrimary,
-                modifier = Modifier.size(16.dp)
+
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = StitchOutlineVariant
             )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(StitchSurfaceContainerHigh),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = StitchOnSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "User",
+                        color = StitchOnSurface,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Administrator",
+                        color = StitchOnSurfaceVariant,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = null,
+                    tint = StitchPrimary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
@@ -394,45 +467,58 @@ private fun SidebarNavItem(
     icon: ImageVector,
     label: String,
     isSelected: Boolean,
+    collapsed: Boolean = false,
     onClick: () -> Unit
 ) {
     val bgColor = if (isSelected) StitchSecondary.copy(alpha = 0.1f) else Color.Transparent
     val contentColor = if (isSelected) StitchSecondary else StitchOnSurfaceVariant
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
             .clickable(onClick = onClick)
-            .padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            .then(
+                if (collapsed) Modifier.padding(vertical = 12.dp)
+                else Modifier.padding(start = 12.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
+            ),
+        contentAlignment = if (collapsed) Alignment.Center else Alignment.CenterStart
     ) {
-        if (isSelected) {
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(20.dp)
-                    .background(StitchSecondary, RoundedCornerShape(2.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = if (collapsed) Modifier else Modifier.fillMaxWidth()
+        ) {
+            if (!collapsed) {
+                if (isSelected) {
+                    Box(
+                        modifier = Modifier
+                            .width(3.dp)
+                            .height(20.dp)
+                            .background(StitchSecondary, RoundedCornerShape(2.dp))
+                    )
+                    Spacer(Modifier.width(4.dp))
+                } else {
+                    Spacer(Modifier.width(7.dp))
+                }
+            }
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = contentColor,
+                modifier = Modifier.size(22.dp)
             )
-            Spacer(Modifier.width(4.dp))
-        } else {
-            Spacer(Modifier.width(7.dp))
+            if (!collapsed) {
+                Text(
+                    text = label,
+                    color = contentColor,
+                    fontSize = 14.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                )
+            }
         }
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = contentColor,
-            modifier = Modifier.size(22.dp)
-        )
-        Text(
-            text = label,
-            color = contentColor,
-            fontSize = 14.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-        )
     }
 }
 
@@ -607,10 +693,15 @@ private fun TerminalPagerContent(
             modifier = Modifier.fillMaxSize(),
             userScrollEnabled = true
         ) { page ->
-            val session = sessions[page]
+            val ts = sessions[page]
             TerminalTab(
-                session = session.session,
+                session = ts.session,
                 webViewCache = webViewCache,
+                hostname = ts.hostname,
+                port = ts.port,
+                username = ts.username,
+                authTypeLabel = ts.authTypeLabel,
+                title = ts.title,
                 modifier = Modifier.fillMaxSize()
             )
         }

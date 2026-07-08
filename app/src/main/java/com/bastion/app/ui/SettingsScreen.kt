@@ -3,6 +3,8 @@ package com.bastion.app.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,10 +53,13 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +74,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bastion.app.BuildConfig
+import com.bastion.app.data.AppSettings
+import com.bastion.app.data.ApiKey
+import com.bastion.app.data.VaultRepository
 import com.bastion.app.ui.theme.ColorMode
 import com.bastion.app.ui.theme.MonokaiBackground
 import com.bastion.app.ui.theme.MonokaiOnSurface
@@ -79,6 +88,9 @@ import com.bastion.app.ui.theme.StitchOutlineVariant
 import com.bastion.app.ui.theme.StitchPrimary
 import com.bastion.app.ui.theme.StitchSecondary
 import com.bastion.app.ui.theme.StitchSurfaceContainerLow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val settingsSections = listOf(
     "general" to "General", "notifications" to "Notifications",
@@ -88,11 +100,27 @@ private val settingsSections = listOf(
 
 @Composable
 fun SettingsContent(
+    repository: VaultRepository,
     colorMode: ColorMode = ColorMode.DARK,
     onColorModeChange: (ColorMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val scope = rememberCoroutineScope()
     var activeSection by remember { mutableStateOf("general") }
+    var settings by remember { mutableStateOf(AppSettings()) }
+
+    val apiKeys by repository.getAllApiKeys().collectAsState(initial = emptyList())
+
+    LaunchedEffect(Unit) {
+        settings = repository.getSettings()
+    }
+
+    fun saveSettings(new: AppSettings) {
+        settings = new
+        scope.launch {
+            repository.saveSettings(new)
+        }
+    }
 
     Row(
         modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -104,14 +132,36 @@ fun SettingsContent(
                 .verticalScroll(rememberScrollState()).padding(24.dp)
         ) {
             when (activeSection) {
-                "general" -> GeneralSection()
-                "notifications" -> NotificationsSection()
+                "general" -> GeneralSection(
+                    serverName = settings.serverName,
+                    timezone = settings.timezone,
+                    language = settings.language,
+                    onServerNameChange = { saveSettings(settings.copy(serverName = it)) },
+                    onTimezoneChange = { saveSettings(settings.copy(timezone = it)) },
+                    onLanguageChange = { saveSettings(settings.copy(language = it)) }
+                )
+                "notifications" -> NotificationsSection(
+                    webhookUrl = settings.webhookUrl,
+                    emailAlerts = settings.emailAlerts,
+                    onWebhookUrlChange = { saveSettings(settings.copy(webhookUrl = it)) },
+                    onEmailAlertsChange = { saveSettings(settings.copy(emailAlerts = it)) }
+                )
                 "appearance" -> AppearanceSection(
                     colorMode = colorMode,
-                    onColorModeChange = onColorModeChange
+                    onColorModeChange = onColorModeChange,
+                    fontSize = settings.fontSize,
+                    onFontSizeChange = { saveSettings(settings.copy(fontSize = it)) }
                 )
-                "security" -> SecuritySection()
-                "api-keys" -> ApiKeysSection()
+                "security" -> SecuritySection(
+                    twoFactorEnabled = settings.twoFactorEnabled,
+                    sessionTimeout = settings.sessionTimeout,
+                    onTwoFactorChange = { saveSettings(settings.copy(twoFactorEnabled = it)) },
+                    onSessionTimeoutChange = { saveSettings(settings.copy(sessionTimeout = it)) }
+                )
+                "api-keys" -> ApiKeysSection(
+                    apiKeys = apiKeys,
+                    repository = repository
+                )
                 "about" -> AboutSection()
             }
         }
@@ -284,39 +334,44 @@ private fun ToggleRow(title: String, description: String, checked: Boolean,
 }
 
 @Composable
-private fun GeneralSection() {
-    var serverName by remember { mutableStateOf("BASTION-PRIME-01") }
-    var timezone by remember { mutableStateOf("EST (Eastern Standard Time)") }
-    var language by remember { mutableStateOf("English (United States)") }
-
+private fun GeneralSection(
+    serverName: String,
+    timezone: String,
+    language: String,
+    onServerNameChange: (String) -> Unit,
+    onTimezoneChange: (String) -> Unit,
+    onLanguageChange: (String) -> Unit
+) {
     SectionCard(title = "General Configuration", icon = Icons.Default.Settings) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            TextField(label = "Server Name", value = serverName, onValueChange = { serverName = it },
+            TextField(label = "Server Name", value = serverName, onValueChange = onServerNameChange,
                 modifier = Modifier.weight(1f))
             SelectField(label = "Timezone", options = listOf(
                 "UTC (Coordinated Universal Time)", "EST (Eastern Standard Time)",
                 "PST (Pacific Standard Time)", "GMT (Greenwich Mean Time)"
-            ), selected = timezone, onSelected = { timezone = it })
+            ), selected = timezone, onSelected = onTimezoneChange)
         }
         Spacer(Modifier.height(16.dp))
         SelectField(label = "Language", options = listOf(
             "English (United States)", "German (Deutsch)", "Japanese (日本語)", "Spanish (Español)"
-        ), selected = language, onSelected = { language = it })
+        ), selected = language, onSelected = onLanguageChange)
     }
 }
 
 @Composable
-private fun NotificationsSection() {
-    var webhookUrl by remember { mutableStateOf("https://hooks.slack.com/services/T00...") }
-    var emailAlerts by remember { mutableStateOf(false) }
-
+private fun NotificationsSection(
+    webhookUrl: String,
+    emailAlerts: Boolean,
+    onWebhookUrlChange: (String) -> Unit,
+    onEmailAlertsChange: (Boolean) -> Unit
+) {
     SectionCard(title = "Notifications", icon = Icons.Default.NotificationsActive) {
         TextField(label = "Slack Webhook URL", value = webhookUrl,
-            onValueChange = { webhookUrl = it }, monospace = true, password = true)
+            onValueChange = onWebhookUrlChange, monospace = true, password = true)
         Spacer(Modifier.height(16.dp))
         ToggleRow(title = "Email Alerts",
             description = "Receive critical system health reports via email",
-            checked = emailAlerts, onCheckedChange = { emailAlerts = it })
+            checked = emailAlerts, onCheckedChange = onEmailAlertsChange)
     }
 }
 
@@ -330,10 +385,10 @@ private val themeOptions = listOf(
 @Composable
 private fun AppearanceSection(
     colorMode: ColorMode,
-    onColorModeChange: (ColorMode) -> Unit
+    onColorModeChange: (ColorMode) -> Unit,
+    fontSize: Float,
+    onFontSizeChange: (Float) -> Unit
 ) {
-    var fontSize by remember { mutableStateOf(14f) }
-
     SectionCard(title = "Appearance", icon = Icons.Default.Palette) {
         SectionLabel("Color Mode")
         Spacer(Modifier.height(12.dp))
@@ -380,7 +435,7 @@ private fun AppearanceSection(
             Text("${fontSize.toInt()}px", color = StitchPrimary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
         }
         Spacer(Modifier.height(8.dp))
-        Slider(value = fontSize, onValueChange = { fontSize = it },
+        Slider(value = fontSize, onValueChange = onFontSizeChange,
             valueRange = 12f..20f, steps = 7,
             colors = SliderDefaults.colors(thumbColor = StitchPrimary,
                 activeTrackColor = StitchPrimary, inactiveTrackColor = StitchOutlineVariant))
@@ -404,29 +459,31 @@ private fun AppearanceSection(
 }
 
 @Composable
-private fun SecuritySection() {
-    var twoFactor by remember { mutableStateOf(true) }
-    var sessionTimeout by remember { mutableStateOf("30 Minutes") }
-
+private fun SecuritySection(
+    twoFactorEnabled: Boolean,
+    sessionTimeout: String,
+    onTwoFactorChange: (Boolean) -> Unit,
+    onSessionTimeoutChange: (String) -> Unit
+) {
     SectionCard(title = "Security", icon = Icons.Default.Security) {
         ToggleRow(title = "Two-Factor Authentication",
             description = "Require a TOTP token for all admin logins",
-            checked = twoFactor, onCheckedChange = { twoFactor = it })
+            checked = twoFactorEnabled, onCheckedChange = onTwoFactorChange)
         Spacer(Modifier.height(16.dp))
         SelectField(label = "Session Timeout", options = listOf(
             "15 Minutes", "30 Minutes", "1 Hour", "4 Hours"
-        ), selected = sessionTimeout, onSelected = { sessionTimeout = it })
+        ), selected = sessionTimeout, onSelected = onSessionTimeoutChange)
     }
 }
 
 @Composable
-private fun ApiKeysSection() {
+private fun ApiKeysSection(
+    apiKeys: List<ApiKey>,
+    repository: VaultRepository
+) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showCreateKey by remember { mutableStateOf(false) }
-    var apiKeys by remember { mutableStateOf(listOf(
-        "Production-Main" to "bs_live_••••••••••••x8y2" to "Oct 12, 2023",
-        "Staging-Webhook" to "bs_test_••••••••••••a4f1" to "Jan 05, 2024"
-    )) }
 
     SectionCard(title = "API Management", icon = Icons.Default.VpnKey) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
@@ -440,18 +497,20 @@ private fun ApiKeysSection() {
             }
         }
         Spacer(Modifier.height(16.dp))
-        apiKeys.forEachIndexed { index, entry ->
-            val (labelKeyPair, created) = entry
-            val (label, keyValue) = labelKeyPair
-            ApiKeyRow(label, keyValue, created,
+        apiKeys.forEachIndexed { index, key ->
+            ApiKeyRow(key.label, key.keyValue,
+                java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.US)
+                    .format(java.util.Date(key.created)),
                 onCopy = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("API Key", keyValue))
-                    Toast.makeText(context, "API key copied: $label", Toast.LENGTH_SHORT).show()
+                    clipboard.setPrimaryClip(ClipData.newPlainText("API Key", key.keyValue))
+                    Toast.makeText(context, "API key copied: ${key.label}", Toast.LENGTH_SHORT).show()
                 },
                 onRevoke = {
-                    apiKeys = apiKeys.filterIndexed { i, _ -> i != index }
-                    Toast.makeText(context, "API key revoked: $label", Toast.LENGTH_SHORT).show()
+                    scope.launch {
+                        repository.deleteApiKey(key.id)
+                        Toast.makeText(context, "API key revoked: ${key.label}", Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
             if (index < apiKeys.lastIndex) {
@@ -472,10 +531,12 @@ private fun ApiKeysSection() {
             confirmButton = {
                 TextButton(onClick = {
                     if (keyLabel.isNotBlank()) {
-                        val newKey = "${keyLabel.lowercase().replace(" ", "-")}_••••••••••••xxxx"
-                        apiKeys = apiKeys + ((keyLabel.trim() to newKey) to "Just now")
-                        showCreateKey = false
-                        Toast.makeText(context, "API key created: ${keyLabel.trim()}", Toast.LENGTH_SHORT).show()
+                        scope.launch {
+                            val rawKey = "${keyLabel.lowercase().replace(" ", "-")}_${System.currentTimeMillis().toString().takeLast(8)}"
+                            repository.addApiKey(keyLabel.trim(), rawKey)
+                            showCreateKey = false
+                            Toast.makeText(context, "API key created: ${keyLabel.trim()}", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }) { Text("Create") }
             },
@@ -535,28 +596,29 @@ private fun AboutSection() {
             Row(horizontalArrangement = Arrangement.spacedBy(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     SectionLabel("Version")
-                    Text("2.4.0-stable", color = StitchSecondary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                    Text(BuildConfig.VERSION_NAME, color = StitchSecondary, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                 }
                 Box(modifier = Modifier.width(1.dp).height(32.dp).background(StitchOutlineVariant))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     SectionLabel("Engine")
-                    Text("V8.2.1-Core", color = StitchOnSurface, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+                    Text("v${BuildConfig.VERSION_NAME}", color = StitchOnSurface, fontSize = 13.sp, fontFamily = FontFamily.Monospace)
                 }
             }
             Spacer(Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 AboutButton("Documentation") {
-                    Toast.makeText(context, "Opening Documentation...", Toast.LENGTH_SHORT).show()
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/wiki"))
+                    )
                 }
                 AboutButton("Support Portal") {
-                    Toast.makeText(context, "Opening Support Portal...", Toast.LENGTH_SHORT).show()
-                }
-                AboutButton("Check for Updates", primary = true) {
-                    Toast.makeText(context, "Checking for updates...", Toast.LENGTH_SHORT).show()
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/issues"))
+                    )
                 }
             }
             Spacer(Modifier.height(24.dp))
-            Text("\u00A9 2024 Bastion Core Technologies Inc. All Rights Reserved.",
+            Text("\u00A9 2026 Bastion Core Technologies Inc. All Rights Reserved.",
                 color = StitchOnSurfaceVariant.copy(alpha = 0.5f), fontSize = 10.sp, letterSpacing = 2.sp)
         }
     }
