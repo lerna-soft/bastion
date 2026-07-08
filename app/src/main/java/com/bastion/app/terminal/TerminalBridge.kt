@@ -62,23 +62,26 @@ class TerminalBridge(private val webView: WebView) {
         }
     }
 
+    /**
+     * Botones rápidos (Esc/Tab/Ctrl/Alt/flechas). Antes esto ejecutaba `term.keyboard.sendKey(...)`
+     * en el WebView — una API que NO existe en xterm.js, así que el JS lanzaba un ReferenceError
+     * que `evaluateJavascript(js, null)` traga en silencio: los botones no hacían nada.
+     * Fix: enviar el byte de control directamente por el mismo canal que usa el tipeo real
+     * (onData → escrito al stdin de la sesión SSH), sin depender de ninguna API de xterm.js.
+     */
     fun sendKey(key: String) {
-        val js = when (key) {
-            "ESC" -> "term.keyboard.sendKey('\\x1b')"
-            "TAB" -> "term.keyboard.sendKey('\\t')"
-            "CTRL" -> "term.keyboard.sendKey('\\x03')"
-            "ALT" -> "term.keyboard.sendKey('\\x1b')"
-            "UP" -> "term.keyboard.sendKey('\\x1b[A')"
-            "DOWN" -> "term.keyboard.sendKey('\\x1b[B')"
-            "LEFT" -> "term.keyboard.sendKey('\\x1b[D')"
-            "RIGHT" -> "term.keyboard.sendKey('\\x1b[C')"
-            else -> ""
+        val raw = when (key) {
+            "ESC" -> "\u001B"
+            "TAB" -> "\t"
+            "CTRL" -> "\u0003" // Ctrl+C
+            "ALT" -> "\u001B"
+            "UP" -> "\u001B[A"
+            "DOWN" -> "\u001B[B"
+            "LEFT" -> "\u001B[D"
+            "RIGHT" -> "\u001B[C"
+            else -> return
         }
-        if (js.isNotEmpty()) {
-            webView.post {
-                webView.evaluateJavascript(js, null)
-            }
-        }
+        onData(raw)
     }
 
     fun initializeJs() {
