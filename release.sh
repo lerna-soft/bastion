@@ -3,13 +3,20 @@ set -euo pipefail
 
 # ============================================================
 # Bastion Release Script
-#   Bumps version → builds APK → creates GitHub release → 
-#   updates latest.json for auto-update
+#   Bumps version → builds APK → tags GitHub → 
+#   updates latest.json on local server (auto-update)
 #
 # Usage: ./release.sh [patch|minor|major]
 #   patch = 1.1.0 → 1.1.1  (default)
 #   minor = 1.1.0 → 1.2.0
 #   major = 1.1.0 → 2.0.0
+#
+# Prerequisites:
+#   - Docker image 'bastion-builder' built
+#   - JDK at $HOME/dev-tools/jdk-17.0.19+10
+#   - Android SDK at $HOME/android-build-env/android-sdk
+#   - gh CLI authenticated
+#   - git remote 'origin' set to lerna-admin/bastion
 # ============================================================
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -18,7 +25,6 @@ JDK_DIR="$HOME/dev-tools/jdk-17.0.19+10"
 SDK_DIR="$HOME/android-build-env/android-sdk"
 OUT_DIR="$HOME/apk-share"
 GITHUB_REPO="lerna-admin/bastion"
-SERVER_UPDATE_URL="http://192.168.0.100:8765/update"
 
 BUMP_TYPE="${1:-patch}"
 
@@ -66,49 +72,46 @@ fi
 # --- Copy with versioned name ---
 TIMESTAMP=$(date +%Y%m%d-%H%M)
 APK_FILENAME="bastion-v${NEW_VERSION}.apk"
-VERSIONED_NAME="bastion-v${NEW_VERSION}-${TIMESTAMP}.apk"
 
 mkdir -p "$OUT_DIR"
 cp "$APK_SRC" "$OUT_DIR/$APK_FILENAME"
-cp "$APK_SRC" "$OUT_DIR/$VERSIONED_NAME"
+cp "$APK_SRC" "$OUT_DIR/bastion-debug.apk"
 FILESIZE=$(stat -c%s "$APK_SRC")
 
 echo "✅ APK built: $OUT_DIR/$APK_FILENAME ($FILESIZE bytes)"
 echo ""
 
-# --- Create GitHub Release ---
+# --- Tag & Push to GitHub (NO APK upload — repo is private) ---
 echo "🏷️  Tagging v$NEW_VERSION..."
 git tag -a "v$NEW_VERSION" -m "Bastion v$NEW_VERSION"
 git push origin "v$NEW_VERSION"
 git push origin master
 
-echo "🚀 Creating GitHub release..."
-RELEASE_URL=$(gh release create "v$NEW_VERSION" \
+echo "🚀 Creating GitHub release (notes only)..."
+gh release create "v$NEW_VERSION" \
     --title "Bastion v$NEW_VERSION" \
-    --notes "## Bastion v$NEW_VERSION\n\nSee [CHANGELOG](CHANGELOG.md) for details." \
-    "$OUT_DIR/$APK_FILENAME#Bastion APK (debug)" \
-    --repo "$GITHUB_REPO" 2>&1)
+    --notes "## Bastion v${NEW_VERSION}\n\n### Changelog\n- See commits: https://github.com/${GITHUB_REPO}/compare/v${CURRENT_VERSION}...v${NEW_VERSION}\n\n### Download\nAPK disponible en servidor local: http://192.168.0.100:8765/apk-share/${APK_FILENAME}" \
+    --repo "$GITHUB_REPO" 2>&1
 
-echo "✅ Release created: $RELEASE_URL"
+echo "✅ Release created: https://github.com/$GITHUB_REPO/releases/tag/v$NEW_VERSION"
 
-# --- Update latest.json ---
-DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/v$NEW_VERSION/$APK_FILENAME"
+# --- Update latest.json (served by serve.py at /update) ---
+DOWNLOAD_URL="http://192.168.0.100:8765/apk-share/${APK_FILENAME}"
 cat > "$OUT_DIR/latest.json" << ENDJSON
-{"update":true,"versionName":"${NEW_VERSION}","versionCode":${NEW_CODE},"downloadUrl":"${DOWNLOAD_URL}","fileName":"${APK_FILENAME}","timestamp":"${TIMESTAMP}","fileSize":${FILESIZE},"changelog":"Bastion v${NEW_VERSION} release"}
+{"update":true,"versionName":"${NEW_VERSION}","versionCode":${NEW_CODE},"downloadUrl":"${DOWNLOAD_URL}","fileName":"${APK_FILENAME}","timestamp":"${TIMESTAMP}","fileSize":${FILESIZE},"changelog":"Bastion v${NEW_VERSION} — see GitHub release notes"}
 ENDJSON
 
-# Push latest.json to server's update endpoint if the server supports it
-# Otherwise it's already readable from $OUT_DIR/latest.json which serve.py serves at /update
 echo "📝 latest.json updated:"
 cat "$OUT_DIR/latest.json"
 echo ""
 
-# --- Restart log server to pick up new latest.json ---
+# --- Restart local server ---
 fuser -k 8765/tcp 2>/dev/null || true
 sleep 1
 nohup python3 "$PROJECT_DIR/serve.py" > /dev/null 2>&1 &
 
-echo "✅ Done! v$CURRENT_VERSION → v$NEW_VERSION"
+echo ""
+echo "✅ Release complete: v$CURRENT_VERSION → v$NEW_VERSION"
 echo "   APK:    $DOWNLOAD_URL"
-echo "   Update: $SERVER_UPDATE_URL"
-echo "   GitHub: $RELEASE_URL"
+echo "   GitHub: https://github.com/$GITHUB_REPO/releases/tag/v$NEW_VERSION"
+echo "   Update: http://192.168.0.100:8765/update"
