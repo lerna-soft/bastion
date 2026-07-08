@@ -770,6 +770,8 @@ private fun createWebView(
         settings.setSupportZoom(true)
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
+        // M3: sin caché en disco (los assets son locales) — menor huella por WebView.
+        settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
 
         isFocusable = true
         isFocusableInTouchMode = true

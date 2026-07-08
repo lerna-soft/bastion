@@ -143,6 +143,7 @@ fun AppLayout(
         val displayName = hostInfo.name
         RemoteLogger.i("AppLayout", "open terminal #$tabId $displayName")
         val session = SshSession()
+        RemoteLogger.i("AppLayout", "terminales abiertas ahora: ${terminalSessions.size + 1} (WebViews en memoria)")
         terminalSessions.add(
             TerminalSession(
                 id = tabId,

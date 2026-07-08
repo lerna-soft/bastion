@@ -168,6 +168,29 @@ class BastionApp : Application() {
         else -> "DESCONOCIDO ($reason)"
     }
 
+    // Visibilidad de presión de memoria (M2): si el sistema aprieta la memoria antes de un cierre
+    // por OOM, queda registrado — clave para confirmar/descartar OOM como causa de crash.
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        RemoteLogger.w("Memory", "onTrimMemory level=${trimLevelName(level)} ($level)")
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        RemoteLogger.w("Memory", "onLowMemory — el sistema está muy bajo de memoria")
+    }
+
+    private fun trimLevelName(level: Int): String = when (level) {
+        TRIM_MEMORY_RUNNING_MODERATE -> "RUNNING_MODERATE"
+        TRIM_MEMORY_RUNNING_LOW -> "RUNNING_LOW"
+        TRIM_MEMORY_RUNNING_CRITICAL -> "RUNNING_CRITICAL"
+        TRIM_MEMORY_UI_HIDDEN -> "UI_HIDDEN"
+        TRIM_MEMORY_BACKGROUND -> "BACKGROUND"
+        TRIM_MEMORY_MODERATE -> "MODERATE"
+        TRIM_MEMORY_COMPLETE -> "COMPLETE"
+        else -> "OTHER"
+    }
+
     fun checkForUpdate() {
         _updateState.value = UpdateState.Checking
         appScope.launch {
