@@ -127,6 +127,9 @@ object RemoteLogger {
 
     @Synchronized
     private fun persistToFile(entry: LogEntry) {
+        // Solo WARN/ERROR/CRASH: los INFO no necesitan sobrevivir a un crash, y su replay al
+        // reiniciar duplicaba entradas ya enviadas en vivo al servidor (HIM-012 F4).
+        if (entry.level == "INFO") return
         val dir = dataDir ?: return
         try {
             val f = pendingFile(dir)

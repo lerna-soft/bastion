@@ -162,7 +162,9 @@ class MainActivity : ComponentActivity() {
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         Text(
-                                            text = "${String.format("%.0f", progress)}%",
+                                            // progress es Int: %.0f con Int lanza IllegalFormatConversionException
+                                            // en el main thread y tumbaba la app al abrir este diálogo (HIM-012).
+                                            text = "$progress%",
                                             color = StitchPrimaryContainer,
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold

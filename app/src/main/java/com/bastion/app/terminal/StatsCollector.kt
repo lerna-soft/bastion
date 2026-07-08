@@ -44,7 +44,13 @@ class StatsCollector(
     private val authConfig: AuthConfig,
     private val intervalMs: Long = 5000L
 ) {
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // Handler propio: un fallo en la sesión oculta de stats jamás debe escalar (HIM-012 F3).
+    private val scope = CoroutineScope(
+        Dispatchers.IO + SupervisorJob() +
+            kotlinx.coroutines.CoroutineExceptionHandler { _, e ->
+                com.bastion.app.logging.RemoteLogger.w("StatsCollector", "error no capturado: ${e.message}")
+            }
+    )
     private var collectJob: Job? = null
     private var statsSession: SshSession? = null
 

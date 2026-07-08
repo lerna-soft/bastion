@@ -1036,7 +1036,9 @@ private fun TerminalPagerContent(
             sessions = sessions,
             activeSessionIndex = pagerState.currentPage,
             onTabClick = { index ->
-                kotlinx.coroutines.MainScope().launch { pagerState.animateScrollToPage(index) }
+                // safe: una excepción aquí (carrera con cierre de pestañas) sería main-thread y
+                // tumbaría la app (HIM-012 F2).
+                kotlinx.coroutines.MainScope().launch { safe("SessionTabBar") { pagerState.animateScrollToPage(index) } }
             },
             onTabClose = onCloseSession,
             onNewTab = onNewTab,
