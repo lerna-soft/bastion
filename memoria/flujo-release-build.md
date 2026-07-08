@@ -6,12 +6,12 @@ metadata:
 ---
 
 **Release completo (`./release.sh [patch|minor|major]`)** — cumple [[reglas-rhd-bst]] al 100%:
-1. Lee versión actual de `app/build.gradle.kts`.
+1. Lee versión actual de `platforms/android/build.gradle.kts` (desde HIM-016, antes `app/build.gradle.kts`).
 2. Bump semver según tipo; `versionCode` +1 automático.
 3. Actualiza `build.gradle.kts`, `git commit -m "chore: bump version to vX.Y.Z (code N)"`.
 4. Rebuildea la imagen Docker `bastion-builder` (desde 2026-07-08, ver nota abajo) y compila con
    `./gradlew assembleRelease` (buildType `release`, JDK17 + Android SDK montados).
-5. Verifica que exista `app/build/outputs/apk/release/app-release.apk` (aborta si no).
+5. Verifica que exista `platforms/android/build/outputs/apk/release/app-release.apk` (aborta si no).
 6. Copia a `~/apk-share/bastion-v{VERSION}.apk` y `~/apk-share/bastion-debug.apk` (el nombre del
    alias sigue diciendo "debug" por compatibilidad, pero el binario ya es `release`).
 7. `git tag -a vX.Y.Z` + push tag + push master.
@@ -40,3 +40,8 @@ no probada con shrink) y `release.sh` ahora rebuildea la imagen Docker en cada c
 **How to apply:** para cualquier entrega que el usuario vaya a instalar/probar como versión nueva, usar SIEMPRE `release.sh`. Reservar `build-apk.sh` solo para verificar que compila durante desarrollo activo, dejando claro al usuario que ese APK no quedó versionado/tageado/liberado formalmente.
 
 Comando Docker manual documentado en `AGENTS.md` (monta `-v ~/apk-share:/out`) está desactualizado — el Dockerfile real no escribe en `/out`; ignorar esa variante y usar los scripts.
+
+**HIM-016 (2026-07-08):** el repo se reestructuró por plataforma (`core/`, `platforms/android/`,
+`platforms/desktop/` pendiente). Esta memoria vive FUERA del repo (no viaja con `git pull` a otro
+servidor) — el `AGENTS.md` del repo es ahora la fuente de verdad portable para arquitectura,
+reglas y estado de specs; esta memoria queda como contexto operativo de este servidor específico.

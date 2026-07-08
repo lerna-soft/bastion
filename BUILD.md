@@ -87,7 +87,7 @@ CMD ["./gradlew", "assembleRelease"]
 
 ```bash
 # APK generado en:
-/home/lerna/proyectos/bastion/app/build/outputs/apk/release/app-release.apk
+/home/lerna/proyectos/bastion/platforms/android/build/outputs/apk/release/app-release.apk
 
 # Copiado automáticamente a:
 /home/lerna/apk-share/bastion-debug.apk

@@ -5,7 +5,7 @@ metadata:
   type: reference
 ---
 
-Rutas: proyecto en `/home/lerna/proyectos/bastion` (repo git independiente). JDK17 en `~/dev-tools/jdk-17.0.19+10`. Android SDK en `~/android-build-env/android-sdk` (platform android-36). APK Docker en `app/build/outputs/apk/release/app-release.apk` (buildType `release` desde 2026-07-08, ver [[flujo-release-build]] — antes era `debug/app-debug.apk`). APK compartido en `~/apk-share/bastion-debug.apk` y `~/apk-share/bastion-v{VERSION}.apk`. `latest.json` en `~/apk-share/latest.json`.
+Rutas: proyecto en `/home/lerna/proyectos/bastion` (repo git independiente). Desde HIM-016 (2026-07-08) el código vive separado por plataforma: `core/` (compartido), `platforms/android/` (antes `app/`), `platforms/desktop/` (pendiente). JDK17 en `~/dev-tools/jdk-17.0.19+10`. Android SDK en `~/android-build-env/android-sdk` (platform android-36). APK Docker en `platforms/android/build/outputs/apk/release/app-release.apk` (buildType `release`, ver [[flujo-release-build]]). APK compartido en `~/apk-share/bastion-debug.apk` y `~/apk-share/bastion-v{VERSION}.apk`. `latest.json` en `~/apk-share/latest.json`. Detalle completo de arquitectura/reglas/estado en `AGENTS.md` del repo (viaja con git, a diferencia de esta memoria externa).
 
 Servidor: `serve.py` en puerto **8765**, URL `http://192.168.0.100:8765/`. Endpoint update: `/update`. Endpoint logs: `POST /logs` (recepción) y `GET /logs` (visor). Endpoint APK: `GET /apk-share/bastion-v*.apk`.
 
