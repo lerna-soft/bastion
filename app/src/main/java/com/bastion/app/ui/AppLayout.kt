@@ -194,6 +194,16 @@ fun AppLayout(
         s == com.bastion.app.ssh.SessionState.SHELL_ACTIVE
     }
 
+    // Foreground service (HIM-011): mantener el proceso vivo mientras haya terminales abiertas,
+    // para que Android no lo mate en segundo plano y las sesiones sobrevivan al cambiar de app.
+    LaunchedEffect(terminalSessions.size) {
+        if (terminalSessions.isEmpty()) {
+            com.bastion.app.service.SessionKeepAliveService.stop(context)
+        } else {
+            com.bastion.app.service.SessionKeepAliveService.start(context, terminalSessions.size)
+        }
+    }
+
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Sidebar(

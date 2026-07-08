@@ -203,8 +203,10 @@ class SshSession(
         try {
             stdinStream?.write(data)
             stdinStream?.flush()
-        } catch (e: Exception) {
-            log.e("write error: ${e.message}", e)
+        } catch (e: Throwable) {
+            // "Pipe closed" ocurre al escribir en una sesión que ya murió (red caída / cierre).
+            // Nunca debe propagarse (tumbaría la app); se registra y se marca la sesión en error.
+            log.w("write error (sesión probablemente cerrada): ${e.message}")
             val err = ConnectionError(
                 phase = "write",
                 message = e.message ?: e.javaClass.simpleName,

@@ -3,6 +3,9 @@ package com.bastion.app.ssh
 import com.bastion.app.logging.RemoteLogger
 import org.apache.sshd.client.SshClient
 import org.apache.sshd.common.signature.BuiltinSignatures
+import org.apache.sshd.core.CoreModuleProperties
+import java.time.Duration
+
 object SshClientManager {
     private var client: SshClient? = null
 
@@ -22,9 +25,14 @@ object SshClientManager {
                 BuiltinSignatures.rsaSHA256,
                 BuiltinSignatures.rsa
             )
+            // Keepalive (HIM-011): heartbeat SSH cada 30s + TCP keepalive, para que la conexión no
+            // muera por inactividad cuando la app pasa a segundo plano (NAT/servidor no la cortan).
+            CoreModuleProperties.HEARTBEAT_INTERVAL.set(newClient, Duration.ofSeconds(30))
+            CoreModuleProperties.SOCKET_KEEPALIVE.set(newClient, true)
+
             newClient.start()
             client = newClient
-            RemoteLogger.i("SshClientManager", "SSH client initialized OK")
+            RemoteLogger.i("SshClientManager", "SSH client initialized OK (heartbeat 30s)")
             Result.success(newClient)
         } catch (e: Throwable) {
             RemoteLogger.e("SshClientManager", "SSH client init failed", e)

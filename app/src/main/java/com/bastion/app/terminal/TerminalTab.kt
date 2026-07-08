@@ -173,10 +173,10 @@ fun TerminalTab(
                     for (data in br.onData) {
                         if (!isActive) break
                         try { session.write(data.toByteArray()) }
-                        catch (e: Exception) { RemoteLogger.w("TerminalTab", "write error: ${e.message}") }
+                        catch (e: Throwable) { RemoteLogger.w("TerminalTab", "write error: ${e.message}") }
                     }
                 } catch (_: kotlinx.coroutines.CancellationException) {
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     RemoteLogger.w("TerminalTab", "input loop: ${e.message}")
                 }
             }
@@ -185,10 +185,10 @@ fun TerminalTab(
                     session.output.collect { bytes ->
                         if (!isActive) return@collect
                         try { br.writeToTerminal(bytes) }
-                        catch (e: Exception) { RemoteLogger.w("TerminalTab", "output error: ${e.message}") }
+                        catch (e: Throwable) { RemoteLogger.w("TerminalTab", "output error: ${e.message}") }
                     }
                 } catch (_: kotlinx.coroutines.CancellationException) {
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
                     RemoteLogger.w("TerminalTab", "output loop: ${e.message}")
                 }
             }
