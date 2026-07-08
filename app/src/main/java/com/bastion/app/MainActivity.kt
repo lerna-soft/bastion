@@ -12,6 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -22,6 +25,7 @@ import com.bastion.app.logging.RemoteLogger
 import com.bastion.app.update.UpdateChecker
 import com.bastion.app.ui.BastionNavGraph
 import com.bastion.app.ui.theme.BastionTheme
+import com.bastion.app.ui.theme.ColorMode
 
 class MainActivity : ComponentActivity() {
     private val log = RemoteLogger.logger("MainActivity")
@@ -47,12 +51,15 @@ class MainActivity : ComponentActivity() {
         val app = application as BastionApp
 
         setContent {
-            BastionTheme {
+            var colorMode by remember { mutableStateOf(ColorMode.DARK) }
+            BastionTheme(colorMode = colorMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
                     BastionNavGraph(
                         navController = navController,
-                        repository = app.repository
+                        repository = app.repository,
+                        colorMode = colorMode,
+                        onColorModeChange = { colorMode = it }
                     )
                 }
 

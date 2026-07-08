@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.bastion.app.data.VaultRepository
+import com.bastion.app.ui.theme.ColorMode
 
 object Routes {
     const val MAIN = "main"
@@ -22,6 +23,8 @@ object Routes {
 fun BastionNavGraph(
     navController: NavHostController,
     repository: VaultRepository,
+    colorMode: ColorMode = ColorMode.DARK,
+    onColorModeChange: (ColorMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -32,6 +35,8 @@ fun BastionNavGraph(
         composable(Routes.MAIN) {
             AppLayout(
                 repository = repository,
+                colorMode = colorMode,
+                onColorModeChange = onColorModeChange,
                 onNavigateToAddHost = { navController.navigate(Routes.HOST_ADD) },
                 onNavigateToEditHost = { id -> navController.navigate(Routes.hostEdit(id)) },
                 onNavigateToAbout = { navController.navigate(Routes.ABOUT) }

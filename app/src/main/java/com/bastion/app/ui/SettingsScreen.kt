@@ -25,6 +25,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
@@ -37,7 +39,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -68,6 +69,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bastion.app.ui.theme.ColorMode
+import com.bastion.app.ui.theme.MonokaiBackground
+import com.bastion.app.ui.theme.MonokaiOnSurface
+import com.bastion.app.ui.theme.MonokaiPrimary
 import com.bastion.app.ui.theme.StitchOnSurface
 import com.bastion.app.ui.theme.StitchOnSurfaceVariant
 import com.bastion.app.ui.theme.StitchOutlineVariant
@@ -82,7 +87,11 @@ private val settingsSections = listOf(
 )
 
 @Composable
-fun SettingsContent(modifier: Modifier = Modifier) {
+fun SettingsContent(
+    colorMode: ColorMode = ColorMode.DARK,
+    onColorModeChange: (ColorMode) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     var activeSection by remember { mutableStateOf("general") }
 
     Row(
@@ -97,7 +106,10 @@ fun SettingsContent(modifier: Modifier = Modifier) {
             when (activeSection) {
                 "general" -> GeneralSection()
                 "notifications" -> NotificationsSection()
-                "appearance" -> AppearanceSection()
+                "appearance" -> AppearanceSection(
+                    colorMode = colorMode,
+                    onColorModeChange = onColorModeChange
+                )
                 "security" -> SecuritySection()
                 "api-keys" -> ApiKeysSection()
                 "about" -> AboutSection()
@@ -178,26 +190,38 @@ private fun SelectField(
             expanded = expanded,
             onExpandedChange = { expanded = it }
         ) {
-            OutlinedTextField(
-                value = selected,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = StitchPrimary,
-                    unfocusedBorderColor = StitchOutlineVariant,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    focusedTextColor = StitchOnSurface,
-                    unfocusedTextColor = StitchOnSurface
-                ),
-                shape = RoundedCornerShape(8.dp)
-            )
-            ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            Box(
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .border(1.dp, StitchOutlineVariant, RoundedCornerShape(8.dp))
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(selected, color = StitchOnSurface, fontSize = 14.sp)
+                    Icon(
+                        imageVector = if (expanded)
+                            Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown,
+                        contentDescription = null,
+                        tint = StitchOnSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
                 options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option, color = StitchOnSurface) },
+                        text = { Text(option, color = StitchOnSurface, fontSize = 14.sp) },
                         onClick = { onSelected(option); expanded = false }
                     )
                 }
@@ -296,48 +320,57 @@ private fun NotificationsSection() {
     }
 }
 
+private val themeOptions = listOf(
+    ColorMode.DARK to "Dark Mode" to Color(0xFF0F1417),
+    ColorMode.LIGHT to "Light Mode" to Color(0xFFF8F9FA),
+    ColorMode.MONOKAI to "Monokai" to Color(0xFF272822),
+    ColorMode.SYSTEM to "System" to Color(0xFF1B2023),
+)
+
 @Composable
-private fun AppearanceSection() {
-    var isDarkMode by remember { mutableStateOf(true) }
+private fun AppearanceSection(
+    colorMode: ColorMode,
+    onColorModeChange: (ColorMode) -> Unit
+) {
     var fontSize by remember { mutableStateOf(14f) }
 
     SectionCard(title = "Appearance", icon = Icons.Default.Palette) {
         SectionLabel("Color Mode")
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(
-                modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
-                    .border(if (isDarkMode) 2.dp else 1.dp,
-                        if (isDarkMode) StitchPrimary else StitchOutlineVariant,
-                        RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable { isDarkMode = true }.padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.surfaceDim)
-                        .border(1.dp, StitchOutlineVariant, RoundedCornerShape(6.dp)))
-                    Spacer(Modifier.height(8.dp))
-                    Text("Dark Mode", color = if (isDarkMode) StitchPrimary else StitchOnSurfaceVariant,
-                        fontSize = 13.sp, fontWeight = if (isDarkMode) FontWeight.Bold else FontWeight.Normal)
+            themeOptions.forEach { (pair, _) ->
+                val (mode, label) = pair
+                val isSelected = colorMode == mode
+                val bgColor = when (mode) {
+                    ColorMode.DARK -> MaterialTheme.colorScheme.surfaceDim
+                    ColorMode.LIGHT -> Color.White
+                    ColorMode.MONOKAI -> MonokaiBackground
+                    ColorMode.SYSTEM -> MaterialTheme.colorScheme.surfaceVariant
                 }
-            }
-            Box(
-                modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
-                    .border(if (!isDarkMode) 2.dp else 1.dp,
-                        if (!isDarkMode) StitchPrimary else StitchOutlineVariant,
-                        RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                    .clickable { isDarkMode = false }.padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
-                        .background(Color.White).border(1.dp, StitchOutlineVariant, RoundedCornerShape(6.dp)))
-                    Spacer(Modifier.height(8.dp))
-                    Text("Light Mode", color = if (!isDarkMode) StitchPrimary else StitchOnSurfaceVariant,
-                        fontSize = 13.sp, fontWeight = if (!isDarkMode) FontWeight.Bold else FontWeight.Normal)
+                val borderColor = if (isSelected) StitchPrimary else StitchOutlineVariant
+                val textColor = when (mode) {
+                    ColorMode.DARK -> StitchOnSurface
+                    ColorMode.LIGHT -> Color(0xFF1C2023)
+                    ColorMode.MONOKAI -> MonokaiOnSurface
+                    ColorMode.SYSTEM -> StitchOnSurface
+                }
+                Box(
+                    modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                        .border(if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .clickable { onColorModeChange(mode) }.padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(modifier = Modifier.fillMaxWidth().height(40.dp).clip(RoundedCornerShape(6.dp))
+                            .background(bgColor)
+                            .border(1.dp, StitchOutlineVariant.copy(alpha = 0.3f), RoundedCornerShape(6.dp)))
+                        Spacer(Modifier.height(8.dp))
+                        Text(label,
+                            color = if (isSelected) StitchPrimary else StitchOnSurfaceVariant,
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                    }
                 }
             }
         }

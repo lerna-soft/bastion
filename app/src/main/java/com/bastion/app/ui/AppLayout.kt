@@ -76,6 +76,7 @@ import com.bastion.app.ssh.AuthConfig
 import com.bastion.app.ssh.SshSession
 import com.bastion.app.ssh.loadKeyPairFromPem
 import com.bastion.app.terminal.TerminalTab
+import com.bastion.app.ui.theme.ColorMode
 import com.bastion.app.ui.theme.StitchOnSurface
 import com.bastion.app.ui.theme.StitchOnSurfaceVariant
 import com.bastion.app.ui.theme.StitchOutlineVariant
@@ -107,6 +108,8 @@ private data class TerminalSession(
 @Composable
 fun AppLayout(
     repository: VaultRepository,
+    colorMode: ColorMode = ColorMode.DARK,
+    onColorModeChange: (ColorMode) -> Unit = {},
     onNavigateToAddHost: () -> Unit,
     onNavigateToEditHost: (Long) -> Unit,
     onNavigateToAbout: () -> Unit,
@@ -205,7 +208,11 @@ fun AppLayout(
                         )
                     }
                     NavSection.SETTINGS -> {
-                        SettingsContent(modifier = Modifier.fillMaxSize())
+                        SettingsContent(
+                            colorMode = colorMode,
+                            onColorModeChange = onColorModeChange,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
                 }
             }

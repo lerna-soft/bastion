@@ -70,15 +70,6 @@ private data class SshKeyEntry(
     val isActive: Boolean
 )
 
-private val sampleKeys = mutableListOf(
-    SshKeyEntry("prod-deploy-key", "RSA 4096", "SHA256:f1:2a:b3:d4...c5",
-        listOf("us-east-web-01", "us-east-db-02"), "Oct 12, 2023", "2m ago", true),
-    SshKeyEntry("backup-sync", "Ed25519", "SHA256:e9:2a:b3:d4...z0",
-        listOf("backup-vault-01"), "Aug 24, 2023", "4d ago", false),
-    SshKeyEntry("dev-macbook", "Ed25519", "SHA256:d5:1a:b3:d4...w2",
-        listOf("staging-k8s", "dev-cluster-01"), "Jan 05, 2024", "12h ago", false),
-)
-
 @Composable
 fun SSHKeysContent(
     searchQuery: String = "",
@@ -88,7 +79,7 @@ fun SSHKeysContent(
     var showAddDialog by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<SshKeyEntry?>(null) }
     var editTarget by remember { mutableStateOf<SshKeyEntry?>(null) }
-    var keys by remember { mutableStateOf(sampleKeys.toList()) }
+    var keys by remember { mutableStateOf(defaultSampleKeys()) }
     val context = LocalContext.current
 
     val filteredKeys = if (searchQuery.isBlank()) keys
@@ -132,7 +123,6 @@ fun SSHKeysContent(
                     isActive = true
                 )
                 keys = listOf(newKey) + keys
-                sampleKeys.add(0, newKey)
                 showAddDialog = false
                 Toast.makeText(context, "SSH key added: $name", Toast.LENGTH_SHORT).show()
             }
@@ -152,8 +142,6 @@ fun SSHKeysContent(
                 TextButton(onClick = {
                     if (newName.isNotBlank()) {
                         keys = keys.map { if (it.name == key.name) it.copy(name = newName.trim()) else it }
-                        val idx = sampleKeys.indexOfFirst { it.name == key.name }
-                        if (idx >= 0) sampleKeys[idx] = sampleKeys[idx].copy(name = newName.trim())
                         editTarget = null
                         Toast.makeText(context, "Key renamed: ${key.name} \u2192 ${newName.trim()}", Toast.LENGTH_SHORT).show()
                     }
@@ -171,7 +159,6 @@ fun SSHKeysContent(
             confirmButton = {
                 TextButton(onClick = {
                     keys = keys.filter { it.name != key.name }
-                    sampleKeys.removeAll { it.name == key.name }
                     deleteTarget = null
                     Toast.makeText(context, "Key deleted: ${key.name}", Toast.LENGTH_SHORT).show()
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
@@ -182,6 +169,15 @@ fun SSHKeysContent(
         )
     }
 }
+
+private fun defaultSampleKeys(): List<SshKeyEntry> = listOf(
+    SshKeyEntry("prod-deploy-key", "RSA 4096", "SHA256:f1:2a:b3:d4...c5",
+        listOf("us-east-web-01", "us-east-db-02"), "Oct 12, 2023", "2m ago", true),
+    SshKeyEntry("backup-sync", "Ed25519", "SHA256:e9:2a:b3:d4...z0",
+        listOf("backup-vault-01"), "Aug 24, 2023", "4d ago", false),
+    SshKeyEntry("dev-macbook", "Ed25519", "SHA256:d5:1a:b3:d4...w2",
+        listOf("staging-k8s", "dev-cluster-01"), "Jan 05, 2024", "12h ago", false),
+)
 
 @Composable
 private fun HeaderSection(
