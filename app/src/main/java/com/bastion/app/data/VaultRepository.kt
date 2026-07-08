@@ -1,6 +1,7 @@
 package com.bastion.app.data
 
 import com.bastion.app.data.crypto.SecretsStore
+import com.bastion.app.logging.RemoteLogger
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 
@@ -15,6 +16,7 @@ class VaultRepository(
     private val db: AppDatabase,
     private val secrets: SecretsStore
 ) {
+    private val log = RemoteLogger.logger("VaultRepo")
     private val dao = db.hostDao()
 
     fun getAllHosts(): Flow<List<Host>> = dao.getAllHosts()
@@ -23,6 +25,7 @@ class VaultRepository(
 
     suspend fun getHostWithSecret(id: Long): HostWithSecret? {
         val host = dao.getHostById(id) ?: return null
+        log.i("getHostWithSecret ${host.name}")
         val password = secrets.getPassword(id)
         val keyData = secrets.getPrivateKey(id)
 
@@ -45,8 +48,10 @@ class VaultRepository(
             updatedAt = if (host.id == 0L) now else now,
             createdAt = if (host.id == 0L) now else host.createdAt
         )
+        val isNew = hostToSave.id == 0L
+        log.i("saveHost ${hostToSave.name} (${if (isNew) "new" else "update"})")
 
-        val hostId = if (hostToSave.id == 0L) {
+        val hostId = if (isNew) {
             dao.insert(hostToSave)
         } else {
             dao.update(hostToSave)
@@ -60,15 +65,15 @@ class VaultRepository(
             AuthType.PUBLIC_KEY -> {
                 secrets.savePrivateKey(hostId, privateKeyPem ?: "", privateKeyPassphrase)
             }
-            AuthType.AGENT_FORWARD -> {
-                // no additional secrets to store
-            }
+            AuthType.AGENT_FORWARD -> {}
         }
 
+        log.i("saveHost done id=$hostId")
         return hostId
     }
 
     suspend fun deleteHost(id: Long) {
+        log.i("deleteHost id=$id")
         dao.deleteById(id)
         secrets.deleteSecret(id)
     }

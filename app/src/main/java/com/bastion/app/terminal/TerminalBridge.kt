@@ -1,7 +1,6 @@
 package com.bastion.app.terminal
 
 import android.util.Base64
-import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import kotlinx.coroutines.channels.Channel
@@ -41,6 +40,31 @@ class TerminalBridge(private val webView: WebView) {
     fun setSize(cols: Int, rows: Int) {
         webView.post {
             webView.evaluateJavascript("setSize($cols, $rows)", null)
+        }
+    }
+
+    fun setColorTheme(name: String) {
+        webView.post {
+            webView.evaluateJavascript("setColorTheme('$name')", null)
+        }
+    }
+
+    fun sendKey(key: String) {
+        val js = when (key) {
+            "ESC" -> "term.keyboard.sendKey('\\x1b')"
+            "TAB" -> "term.keyboard.sendKey('\\t')"
+            "CTRL" -> "term.keyboard.sendKey('\\x03')"
+            "ALT" -> "term.keyboard.sendKey('\\x1b')"
+            "UP" -> "term.keyboard.sendKey('\\x1b[A')"
+            "DOWN" -> "term.keyboard.sendKey('\\x1b[B')"
+            "LEFT" -> "term.keyboard.sendKey('\\x1b[D')"
+            "RIGHT" -> "term.keyboard.sendKey('\\x1b[C')"
+            else -> ""
+        }
+        if (js.isNotEmpty()) {
+            webView.post {
+                webView.evaluateJavascript(js, null)
+            }
         }
     }
 

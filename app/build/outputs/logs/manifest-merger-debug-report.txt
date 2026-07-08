@@ -1,9 +1,20 @@
 -- Merging decision tree log ---
+provider#androidx.core.content.FileProvider
+INJECTED from /src/app/src/main/AndroidManifest.xml:27:9-35:20
+	android:grantUriPermissions
+		ADDED from /src/app/src/main/AndroidManifest.xml:31:13-47
+	android:authorities
+		INJECTED from /src/app/src/main/AndroidManifest.xml
+		ADDED from /src/app/src/main/AndroidManifest.xml:29:13-64
+	android:exported
+		ADDED from /src/app/src/main/AndroidManifest.xml:30:13-37
+	android:name
+		ADDED from /src/app/src/main/AndroidManifest.xml:28:13-62
 manifest
-ADDED from /src/app/src/main/AndroidManifest.xml:2:1-24:12
-INJECTED from /src/app/src/main/AndroidManifest.xml:2:1-24:12
-INJECTED from /src/app/src/main/AndroidManifest.xml:2:1-24:12
-INJECTED from /src/app/src/main/AndroidManifest.xml:2:1-24:12
+ADDED from /src/app/src/main/AndroidManifest.xml:2:1-38:12
+INJECTED from /src/app/src/main/AndroidManifest.xml:2:1-38:12
+INJECTED from /src/app/src/main/AndroidManifest.xml:2:1-38:12
+INJECTED from /src/app/src/main/AndroidManifest.xml:2:1-38:12
 MERGED from [androidx.navigation:navigation-common:2.8.4] /root/.gradle/caches/8.11.1/transforms/db6045c8295d853b4f0a73765613d0f4/transformed/navigation-common-2.8.4/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.navigation:navigation-runtime:2.8.4] /root/.gradle/caches/8.11.1/transforms/7a19efde6fa19da1513e2eae03326782/transformed/navigation-runtime-2.8.4/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.navigation:navigation-common-ktx:2.8.4] /root/.gradle/caches/8.11.1/transforms/f2ade81eb30b9e8166e9eb10226e020f/transformed/navigation-common-ktx-2.8.4/AndroidManifest.xml:2:1-7:12
@@ -75,9 +86,13 @@ uses-permission#android.permission.INTERNET
 ADDED from /src/app/src/main/AndroidManifest.xml:4:5-67
 	android:name
 		ADDED from /src/app/src/main/AndroidManifest.xml:4:22-64
+uses-permission#android.permission.REQUEST_INSTALL_PACKAGES
+ADDED from /src/app/src/main/AndroidManifest.xml:5:5-83
+	android:name
+		ADDED from /src/app/src/main/AndroidManifest.xml:5:22-80
 application
-ADDED from /src/app/src/main/AndroidManifest.xml:6:5-22:19
-INJECTED from /src/app/src/main/AndroidManifest.xml:6:5-22:19
+ADDED from /src/app/src/main/AndroidManifest.xml:7:5-36:19
+INJECTED from /src/app/src/main/AndroidManifest.xml:7:5-36:19
 MERGED from [androidx.compose.ui:ui-tooling-android:1.7.5] /root/.gradle/caches/8.11.1/transforms/95a34ebd012856638c552774712f6d20/transformed/ui-tooling-release/AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.compose.ui:ui-tooling-android:1.7.5] /root/.gradle/caches/8.11.1/transforms/95a34ebd012856638c552774712f6d20/transformed/ui-tooling-release/AndroidManifest.xml:22:5-26:19
 MERGED from [androidx.compose.ui:ui-test-manifest:1.7.5] /root/.gradle/caches/8.11.1/transforms/24e8452ddaa062394d0afaa48dc3226f/transformed/ui-test-manifest-1.7.5/AndroidManifest.xml:22:5-26:19
@@ -101,33 +116,45 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /root/.gradle/caches/8.11.1
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.13.1] /root/.gradle/caches/8.11.1/transforms/776fd35e48c85a1c1fead28b4bbaa649/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from /src/app/src/main/AndroidManifest.xml:10:9-35
+		ADDED from /src/app/src/main/AndroidManifest.xml:13:9-35
 	android:label
-		ADDED from /src/app/src/main/AndroidManifest.xml:9:9-41
+		ADDED from /src/app/src/main/AndroidManifest.xml:12:9-41
+	android:roundIcon
+		ADDED from /src/app/src/main/AndroidManifest.xml:11:9-48
+	android:icon
+		ADDED from /src/app/src/main/AndroidManifest.xml:10:9-43
 	android:allowBackup
-		ADDED from /src/app/src/main/AndroidManifest.xml:8:9-36
+		ADDED from /src/app/src/main/AndroidManifest.xml:9:9-36
 	android:theme
-		ADDED from /src/app/src/main/AndroidManifest.xml:11:9-45
+		ADDED from /src/app/src/main/AndroidManifest.xml:15:9-45
+	android:usesCleartextTraffic
+		ADDED from /src/app/src/main/AndroidManifest.xml:14:9-44
 	android:name
-		ADDED from /src/app/src/main/AndroidManifest.xml:7:9-35
+		ADDED from /src/app/src/main/AndroidManifest.xml:8:9-35
 activity#com.bastion.app.MainActivity
-ADDED from /src/app/src/main/AndroidManifest.xml:13:9-21:20
+ADDED from /src/app/src/main/AndroidManifest.xml:17:9-25:20
 	android:exported
-		ADDED from /src/app/src/main/AndroidManifest.xml:15:13-36
+		ADDED from /src/app/src/main/AndroidManifest.xml:19:13-36
 	android:theme
-		ADDED from /src/app/src/main/AndroidManifest.xml:16:13-49
+		ADDED from /src/app/src/main/AndroidManifest.xml:20:13-49
 	android:name
-		ADDED from /src/app/src/main/AndroidManifest.xml:14:13-41
+		ADDED from /src/app/src/main/AndroidManifest.xml:18:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /src/app/src/main/AndroidManifest.xml:17:13-20:29
+ADDED from /src/app/src/main/AndroidManifest.xml:21:13-24:29
 action#android.intent.action.MAIN
-ADDED from /src/app/src/main/AndroidManifest.xml:18:17-69
+ADDED from /src/app/src/main/AndroidManifest.xml:22:17-69
 	android:name
-		ADDED from /src/app/src/main/AndroidManifest.xml:18:25-66
+		ADDED from /src/app/src/main/AndroidManifest.xml:22:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /src/app/src/main/AndroidManifest.xml:19:17-77
+ADDED from /src/app/src/main/AndroidManifest.xml:23:17-77
 	android:name
-		ADDED from /src/app/src/main/AndroidManifest.xml:19:27-74
+		ADDED from /src/app/src/main/AndroidManifest.xml:23:27-74
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from /src/app/src/main/AndroidManifest.xml:32:13-34:63
+	android:resource
+		ADDED from /src/app/src/main/AndroidManifest.xml:34:17-60
+	android:name
+		ADDED from /src/app/src/main/AndroidManifest.xml:33:17-67
 uses-sdk
 INJECTED from /src/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /src/app/src/main/AndroidManifest.xml

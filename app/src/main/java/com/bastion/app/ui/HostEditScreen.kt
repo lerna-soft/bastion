@@ -1,266 +1,368 @@
 package com.bastion.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.bastion.app.data.AuthType
-import com.bastion.app.data.Host
-import com.bastion.app.data.VaultRepository
-import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HostEditScreen(
     hostId: Long?,
-    repository: VaultRepository,
-    onNavigateBack: () -> Unit
+    repository: com.bastion.app.data.VaultRepository,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val scope = rememberCoroutineScope()
-    val isEdit = hostId != null && hostId > 0
-
-    var name by remember { mutableStateOf("") }
+    var serverName by remember { mutableStateOf("") }
     var hostname by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("22") }
     var username by remember { mutableStateOf("") }
-    var authType by remember { mutableStateOf(AuthType.PASSWORD) }
     var password by remember { mutableStateOf("") }
-    var privateKeyPem by remember { mutableStateOf("") }
-    var privateKeyPassphrase by remember { mutableStateOf("") }
-    var useAgentForwarding by remember { mutableStateOf(false) }
-    var dropdownExpanded by remember { mutableStateOf(false) }
+    var privateKey by remember { mutableStateOf("") }
+    var passphrase by remember { mutableStateOf("") }
+    var authType by remember { mutableStateOf(AuthType.PASSWORD) }
+    var showPassword by remember { mutableStateOf(false) }
+    var showPassphrase by remember { mutableStateOf(false) }
 
-    // Load existing host data
-    androidx.compose.runtime.LaunchedEffect(hostId) {
-        if (isEdit) {
-            val hostWithSecret = repository.getHostWithSecret(hostId!!)
-            hostWithSecret?.let { hws ->
-                name = hws.host.name
-                hostname = hws.host.hostname
-                port = hws.host.port.toString()
-                username = hws.host.username
-                authType = hws.host.authType
-                useAgentForwarding = hws.host.useAgentForwarding
-                password = hws.password ?: ""
-                privateKeyPem = hws.privateKeyPem ?: ""
-                privateKeyPassphrase = hws.privateKeyPassphrase ?: ""
+    val isEdit = hostId != null
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF0F1417))
+    ) {
+        // Header
+        Box(Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF0F1417))
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onNavigateBack) {
+                    Icon(
+                        Icons.Default.ArrowBack,
+                        contentDescription = "Volver",
+                        tint = Color(0xFFE2E2E2)
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (isEdit) "Edit Server" else "Add Server",
+                    color = Color(0xFFE2E2E2),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = { }) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = "Info",
+                        tint = Color(0xFF8E9192)
+                    )
+                }
             }
         }
-    }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (isEdit) "Editar host" else "Nuevo host") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
-                    }
-                }
-            )
-        }
-    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Nombre") },
-                placeholder = { Text("web1") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            Spacer(Modifier.height(16.dp))
+
+            // Shield Icon
+            Icon(
+                Icons.Default.Shield,
+                contentDescription = null,
+                tint = Color(0xFF75D1FF),
+                modifier = Modifier.size(32.dp)
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(24.dp))
 
-            OutlinedTextField(
-                value = hostname,
-                onValueChange = { hostname = it },
-                label = { Text("Host / IP") },
-                placeholder = { Text("10.0.0.5") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                modifier = Modifier.fillMaxWidth()
+            // Server Name
+            StitchTextField(
+                label = "SERVER NAME",
+                value = serverName,
+                onValueChange = { serverName = it },
+                placeholder = "e.g. Production Web"
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-            Row(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = port,
-                    onValueChange = { port = it.filter { c -> c.isDigit() } },
-                    label = { Text("Puerto") },
-                    placeholder = { Text("22") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            // Hostname + Port Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                StitchTextField(
+                    label = "HOSTNAME",
+                    value = hostname,
+                    onValueChange = { hostname = it },
+                    placeholder = "web-01.example.com",
                     modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.padding(8.dp))
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = { Text("Usuario") },
-                    placeholder = { Text("root") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1.5f)
+                StitchTextField(
+                    label = "PORT",
+                    value = port,
+                    onValueChange = { port = it },
+                    placeholder = "22",
+                    keyboardType = KeyboardType.Number,
+                    modifier = Modifier.width(80.dp)
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-            ExposedDropdownMenuBox(
-                expanded = dropdownExpanded,
-                onExpandedChange = { dropdownExpanded = !dropdownExpanded }
-            ) {
-                OutlinedTextField(
-                    value = authTypeLabel(authType),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Autenticación") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-                ExposedDropdownMenu(
-                    expanded = dropdownExpanded,
-                    onDismissRequest = { dropdownExpanded = false }
-                ) {
-                    AuthType.entries.forEach { type ->
-                        DropdownMenuItem(
-                            text = { Text(authTypeLabel(type)) },
-                            onClick = {
-                                authType = type
-                                dropdownExpanded = false
-                            }
-                        )
-                    }
+            // Username
+            StitchTextField(
+                label = "USERNAME",
+                value = username,
+                onValueChange = { username = it },
+                placeholder = "root",
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color(0xFF8E9192),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            // Auth Type Toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AuthToggleButton(
+                    label = "PASSWORD",
+                    isSelected = authType == AuthType.PASSWORD,
+                    onClick = { authType = AuthType.PASSWORD },
+                    modifier = Modifier.weight(1f)
+                )
+                AuthToggleButton(
+                    label = "PRIVATE KEY",
+                    isSelected = authType == AuthType.PUBLIC_KEY,
+                    onClick = { authType = AuthType.PUBLIC_KEY },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Password or Private Key field
+            if (authType == AuthType.PASSWORD) {
+                StitchTextField(
+                    label = "PASSWORD",
+                    value = password,
+                    onValueChange = { password = it },
+                    placeholder = "••••••••",
+                    isPassword = true,
+                    showPassword = showPassword,
+                    onTogglePassword = { showPassword = !showPassword }
+                )
+            } else {
+                StitchTextField(
+                    label = "PRIVATE KEY",
+                    value = privateKey,
+                    onValueChange = { privateKey = it },
+                    placeholder = "ld_ed25519_production"
+                )
+                Spacer(Modifier.height(16.dp))
+                StitchTextField(
+                    label = "OPTIONAL PASSPHRASE",
+                    value = passphrase,
+                    onValueChange = { passphrase = it },
+                    placeholder = "••••••••",
+                    isPassword = true,
+                    showPassword = showPassphrase,
+                    onTogglePassword = { showPassphrase = !showPassphrase }
+                )
+            }
+
+            Spacer(Modifier.height(32.dp))
+
+            // Connect Button
+            Button(
+                onClick = { },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF75D1FF)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "Connect",
+                    color = Color(0xFF003548),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             Spacer(Modifier.height(12.dp))
 
-            when (authType) {
-                AuthType.PASSWORD -> {
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Contraseña") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                AuthType.PUBLIC_KEY -> {
-                    OutlinedTextField(
-                        value = privateKeyPem,
-                        onValueChange = { privateKeyPem = it },
-                        label = { Text("Clave privada (PEM)") },
-                        placeholder = { Text("-----BEGIN OPENSSH PRIVATE KEY-----...") },
-                        minLines = 4,
-                        maxLines = 8,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = privateKeyPassphrase,
-                        onValueChange = { privateKeyPassphrase = it },
-                        label = { Text("Passphrase (opcional)") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                AuthType.AGENT_FORWARD -> {
-                    Text(
-                        "Agent forwarding reenviará las claves cargadas en la app.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            if (authType == AuthType.AGENT_FORWARD) {
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = useAgentForwarding,
-                        onCheckedChange = { useAgentForwarding = it }
-                    )
-                    Text("Usar agent forwarding")
-                }
+            // Save Button
+            OutlinedButton(
+                onClick = { },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFFE2E2E2)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    "SAVE CONFIGURATION",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
             }
 
             Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = {
-                    val host = Host(
-                        id = hostId ?: 0,
-                        name = name,
-                        hostname = hostname,
-                        port = port.toIntOrNull() ?: 22,
-                        username = username,
-                        authType = authType,
-                        useAgentForwarding = useAgentForwarding
-                    )
-                    scope.launch {
-                        repository.saveHost(
-                            host = host,
-                            password = password.ifBlank { null },
-                            privateKeyPem = privateKeyPem.ifBlank { null },
-                            privateKeyPassphrase = privateKeyPassphrase.ifBlank { null }
-                        )
-                        onNavigateBack()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = name.isNotBlank() && hostname.isNotBlank() && username.isNotBlank()
-            ) {
-                Text(if (isEdit) "Guardar cambios" else "Crear host")
-            }
         }
     }
 }
 
-private fun authTypeLabel(type: AuthType): String = when (type) {
-    AuthType.PASSWORD -> "Contraseña"
-    AuthType.PUBLIC_KEY -> "Clave pública (PEM)"
-    AuthType.AGENT_FORWARD -> "Agent forwarding"
+@Composable
+private fun StitchTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isPassword: Boolean = false,
+    showPassword: Boolean = false,
+    onTogglePassword: (() -> Unit)? = null,
+    leadingIcon: @Composable (() -> Unit)? = null
+) {
+    Column(modifier = modifier) {
+        Text(
+            label,
+            color = Color(0xFF8E9192),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.5.sp
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = {
+                Text(
+                    placeholder,
+                    color = Color(0xFF444748),
+                    fontSize = 14.sp
+                )
+            },
+            leadingIcon = leadingIcon,
+            trailingIcon = if (isPassword && onTogglePassword != null) {
+                {
+                    IconButton(onClick = { onTogglePassword() }) {
+                        Icon(
+                            if (showPassword) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = null,
+                            tint = Color(0xFF8E9192)
+                        )
+                    }
+                }
+            } else null,
+            visualTransformation = if (isPassword && !showPassword) {
+                PasswordVisualTransformation()
+            } else {
+                VisualTransformation.None
+            },
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF75D1FF),
+                unfocusedBorderColor = Color(0xFF1E2020),
+                focusedContainerColor = Color(0xFF1E2020),
+                unfocusedContainerColor = Color(0xFF1E2020),
+                focusedTextColor = Color(0xFFE2E2E2),
+                unfocusedTextColor = Color(0xFFE2E2E2),
+                cursorColor = Color(0xFF75D1FF)
+            ),
+            shape = RoundedCornerShape(8.dp)
+        )
+    }
+}
+
+@Composable
+private fun AuthToggleButton(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (isSelected) Color(0xFF1E2020) else Color(0xFF0F1417),
+            contentColor = if (isSelected) Color(0xFFE2E2E2) else Color(0xFF8E9192)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
 }

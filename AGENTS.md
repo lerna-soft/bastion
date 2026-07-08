@@ -8,7 +8,7 @@
 App Android nativa tipo Termius: vault de conexiones SSH + terminal multi-pestaña en WebView con xterm.js. Sin shell local del dispositivo.
 
 ## Stack
-- **UI:** Kotlin + Jetpack Compose + Material 3 (HorizontalPager para pestañas)
+- **UI:** Kotlin + Jetpack Compose + Material 3 (sidebar 260dp + HorizontalPager para terminal)
 - **SSH:** Apache MINA SSHD 2.18.0 (Java puro, password + publickey ed25519/rsa + agent forwarding)
 - **Terminal:** xterm.js 6.0.0 (MIT) en WebView local (assets, sin red)
 - **Vault:** Room + EncryptedSharedPreferences (Android Keystore)
@@ -26,7 +26,7 @@ App Android nativa tipo Termius: vault de conexiones SSH + terminal multi-pesta�
 | `app/src/main/.../data/` | Vault (Room: Host entity + DAO) + SecretsStore (EncryptedSharedPreferences) |
 | `app/src/main/.../ssh/` | SshClientManager + SshSession (MINA SSHD wrapper) + AuthMethods |
 | `app/src/main/.../terminal/` | TerminalBridge (JsInterface) + TerminalTab composable |
-| `app/src/main/.../ui/` | VaultScreen, HostEditScreen, TerminalScreen (pestañas) |
+| `app/src/main/.../ui/` | AppLayout (sidebar+header+content), MainTabsScreen (VaultTabContent, composables compartidos), HostEditScreen, AboutScreen |
 | `Dockerfile` + `build-apk.sh` | Build Docker aislado |
 
 ## SSH Implementation Details
@@ -73,6 +73,8 @@ class SshSession {
 - **Secretos cifrados** — siempre via Keystore → EncryptedSharedPreferences.
 - **Spec-driven** — todo cambio debe actualizar `HIM-001.spec.md`.
 - **Docker build** — no instalar JDK/SDK en el servidor base.
+- **Version management** — ANTES de hacer build, SIEMPRE verificar versión actual en `app/build.gradle.kts` y incrementar `versionCode` + `versionName`. NUNCA asumir que el usuario no tiene la última versión. Cada build debe ser una versión nueva que el usuario no tenga.
+- **GitHub releases** — Crear release en GitHub para cada versión publicada con changelog.
 
 ## Architecture
 ```
@@ -90,3 +92,11 @@ flowchart LR
 1. **Iter 1 (MVP):** Scaffold + Room/Secrets + SshSession(password) + xterm bridge + VaultScreen + TerminalScreen mono-pestaña → APK funcional
 2. **Iter 2:** Multi-pestaña + auth publickey + resize + edit/delete hosts
 3. **Iter 3:** Agent forwarding + known-hosts verification + dark theme + polish
+
+## Stitch Redesign (v1.1.0)
+- **Sidebar** 260dp fijo con navegación: Connections (dns), Terminal (devices), SSH Keys (key), Settings (settings)
+- **Header** con título, sub-nav (Sessions/Clusters/History), search, notifications, add button
+- **AppLayout.kt** reemplaza MainTabsScreen como entry point
+- Nav.kt usa AppLayout como MAIN route
+- Terminal tabs se manejan dentro de la sección TERMINAL con HorizontalPager
+- VaultTabContent ahora sin cabecera interna (la provee AppHeader)

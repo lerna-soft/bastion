@@ -10,13 +10,12 @@ import androidx.navigation.navArgument
 import com.bastion.app.data.VaultRepository
 
 object Routes {
-    const val VAULT = "vault"
+    const val MAIN = "main"
     const val HOST_EDIT = "host_edit/{hostId}"
     const val HOST_ADD = "host_add"
-    const val TERMINAL = "terminal/{hostId}"
+    const val ABOUT = "about"
 
     fun hostEdit(hostId: Long) = "host_edit/$hostId"
-    fun terminal(hostId: Long) = "terminal/$hostId"
 }
 
 @Composable
@@ -27,15 +26,15 @@ fun BastionNavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Routes.VAULT,
+        startDestination = Routes.MAIN,
         modifier = modifier
     ) {
-        composable(Routes.VAULT) {
-            VaultScreen(
+        composable(Routes.MAIN) {
+            AppLayout(
                 repository = repository,
-                onAddHost = { navController.navigate(Routes.HOST_ADD) },
-                onEditHost = { id -> navController.navigate(Routes.hostEdit(id)) },
-                onConnect = { id -> navController.navigate(Routes.terminal(id)) }
+                onNavigateToAddHost = { navController.navigate(Routes.HOST_ADD) },
+                onNavigateToEditHost = { id -> navController.navigate(Routes.hostEdit(id)) },
+                onNavigateToAbout = { navController.navigate(Routes.ABOUT) }
             )
         }
 
@@ -43,6 +42,12 @@ fun BastionNavGraph(
             HostEditScreen(
                 hostId = null,
                 repository = repository,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.ABOUT) {
+            AboutScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -56,18 +61,6 @@ fun BastionNavGraph(
                 hostId = hostId,
                 repository = repository,
                 onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = Routes.TERMINAL,
-            arguments = listOf(navArgument("hostId") { type = NavType.LongType })
-        ) {
-            // Extract hostId from nav backstack — use saved state handle or re-fetch
-            val hostId = it.arguments?.getLong("hostId") ?: return@composable
-            TerminalScreen(
-                repository = repository,
-                initialHostId = hostId
             )
         }
     }
