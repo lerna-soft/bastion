@@ -84,7 +84,7 @@ object RemoteLogger {
     }
 
     fun clearCrashLog() {
-        try { crashFile()?.delete(); lastExitFile()?.delete(); seenFile()?.delete() } catch (_: Exception) { }
+        try { crashFile()?.delete(); lastExitFile()?.delete(); seenFile()?.delete(); crashUploadedMarker()?.delete() } catch (_: Exception) { }
         recentBuffer.clear()
     }
 
@@ -118,8 +118,15 @@ object RemoteLogger {
                 if (buffer.isNotEmpty()) flush()
             }
         }
-        // Send any pending logs from previous crash
-        if (filesDir != null) flushPendingFile(filesDir)
+        // Send any pending logs from previous crash, then re-upload the crash stack trace itself
+        // if the inline send at crash time didn't reach the server. Both run on the IO scope so a
+        // slow/unreachable server never blocks app startup.
+        if (filesDir != null) {
+            scope.launch {
+                flushPendingFile(filesDir)
+                uploadCrashLogIfUnsent()
+            }
+        }
         Log.i(TAG, "RemoteLogger initialized → $serverUrl")
     }
 
@@ -145,11 +152,44 @@ object RemoteLogger {
             val content = f.readText(Charsets.UTF_8).trim()
             if (content.isEmpty()) return
             val json = "[${content.replace("\n", ",")}]"
-            httpPost(json)
-            f.delete()
-            Log.i(TAG, "flushed pending file (${content.lines().size} entries)")
+            // Only delete once the server confirmed receipt — otherwise a brief outage on boot
+            // would silently drop the very WARN/ERROR/CRASH entries this file exists to preserve.
+            if (httpPost(json)) {
+                f.delete()
+                Log.i(TAG, "flushed pending file (${content.lines().size} entries)")
+            } else {
+                Log.w(TAG, "flushPendingFile: server unreachable, keeping ${content.lines().size} entries for next boot")
+            }
         } catch (e: Exception) {
             Log.w(TAG, "flushPendingFile failed: ${e.message}")
+        }
+    }
+
+    private fun crashUploadedMarker(): File? = dataDir?.let { File(it, "bastion_crash.uploaded") }
+
+    /**
+     * On boot, re-upload the full stack trace in bastion_crash.log to the server if it wasn't
+     * delivered inline at crash time. The uncaught handler tries an inline httpPost, but that is
+     * best-effort (2s timeout, may run with no network or be cut short by process death), so a
+     * crash's stack trace could stay stranded on-device forever — only ever visible in the in-app
+     * Logs screen. This closes that gap: the marker stores the crash file's lastModified, so each
+     * distinct crash is uploaded exactly once, and only after the server confirms receipt.
+     */
+    private fun uploadCrashLogIfUnsent() {
+        val cf = crashFile() ?: return
+        if (!cf.exists() || cf.length() == 0L) return
+        val stamp = cf.lastModified().toString()
+        val marker = crashUploadedMarker()
+        val alreadySent = try { marker?.exists() == true && marker.readText().trim() == stamp }
+            catch (_: Exception) { false }
+        if (alreadySent) return
+        val text = readFileOrNull(cf) ?: return
+        val entry = LogEntry("CRASH", "CrashReplay", "stack trace del crash anterior (re-envío en arranque)", text)
+        if (httpPost(buildJsonArray(listOf(entry)))) {
+            try { marker?.writeText(stamp) } catch (_: Exception) { }
+            Log.i(TAG, "uploaded stranded crash log to server")
+        } else {
+            Log.w(TAG, "uploadCrashLogIfUnsent: server unreachable, will retry next boot")
         }
     }
 
@@ -172,8 +212,11 @@ object RemoteLogger {
         fun state(from: Any, to: Any) = RemoteLogger.i(tag, "state $from → $to")
     }
 
-    private fun httpPost(json: String) {
-        try {
+    /** @return true only if the server accepted the POST (2xx). Callers that delete local data
+     * after sending (pending file, crash log) MUST gate the delete on this — a swallowed failure
+     * used to drop entries whenever the server was briefly unreachable. */
+    private fun httpPost(json: String): Boolean {
+        return try {
             val url = URL(serverUrl)
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 2000
@@ -182,9 +225,10 @@ object RemoteLogger {
             conn.doOutput = true
             conn.setRequestProperty("Content-Type", "application/json")
             OutputStreamWriter(conn.outputStream).use { it.write(json) }
-            conn.responseCode
+            val code = conn.responseCode
             conn.disconnect()
-        } catch (_: Exception) { }
+            code in 200..299
+        } catch (_: Exception) { false }
     }
 
     private fun flush() {
