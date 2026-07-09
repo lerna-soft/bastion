@@ -39,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Warning
@@ -144,6 +145,7 @@ fun TerminalTab(
     val context = LocalContext.current
     var showThemeDialog by remember { mutableStateOf(false) }
     var showCommandPalette by remember { mutableStateOf(false) }
+    var selectionMode by remember(session) { mutableStateOf(false) }
 
     // Keyed by session: in a HorizontalPager the page slots are recycled, so without the
     // `session` key these remember{} blocks kept the WebView/scope/bridge of a *previous*
@@ -224,7 +226,7 @@ fun TerminalTab(
                     .weight(1f)
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
-                    .clickable {
+                    .clickable(enabled = !selectionMode) {
                         webView.requestFocus()
                         val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                         imm.showSoftInput(webView, InputMethodManager.SHOW_IMPLICIT)
@@ -249,26 +251,41 @@ fun TerminalTab(
                         ClosedOverlay()
                     }
                     SessionState.SHELL_ACTIVE -> {
-                        ThemeButton(
-                            onClick = { showThemeDialog = true },
+                        Row(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(8.dp)
-                        )
+                                .padding(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            SelectionToggleButton(
+                                active = selectionMode,
+                                onClick = {
+                                    selectionMode = !selectionMode
+                                    bridge.value?.setSelectionMode(selectionMode)
+                                }
+                            )
+                            ThemeButton(onClick = { showThemeDialog = true })
+                        }
                     }
                 }
             }
 
-            if (state == SessionState.SHELL_ACTIVE) {
-                SpecialKeysBar(
-                    onEsc = { bridge.value?.sendKey("ESC") },
-                    onTab = { bridge.value?.sendKey("TAB") },
-                    onCtrl = { bridge.value?.sendKey("CTRL") },
-                    onAlt = { bridge.value?.sendKey("ALT") },
-                    onUp = { bridge.value?.sendKey("UP") },
-                    onDown = { bridge.value?.sendKey("DOWN") },
-                    onLeft = { bridge.value?.sendKey("LEFT") },
-                    onRight = { bridge.value?.sendKey("RIGHT") }
+            if (state == SessionState.SHELL_ACTIVE && selectionMode) {
+                SelectionActionBar(
+                    onCopy = {
+                        bridge.value?.copySelection()
+                        selectionMode = false
+                        bridge.value?.setSelectionMode(false)
+                    },
+                    onCopyAll = {
+                        bridge.value?.copyAll()
+                        selectionMode = false
+                        bridge.value?.setSelectionMode(false)
+                    },
+                    onClose = {
+                        selectionMode = false
+                        bridge.value?.setSelectionMode(false)
+                    }
                 )
             }
         }
@@ -713,49 +730,71 @@ private fun CommandItem(
 }
 
 @Composable
-private fun SpecialKeysBar(
-    onEsc: () -> Unit,
-    onTab: () -> Unit,
-    onCtrl: () -> Unit,
-    onAlt: () -> Unit,
-    onUp: () -> Unit,
-    onDown: () -> Unit,
-    onLeft: () -> Unit,
-    onRight: () -> Unit
+private fun SelectionToggleButton(active: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(
+                if (active) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Default.SelectAll,
+            contentDescription = "Select text",
+            tint = if (active) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(14.dp)
+        )
+    }
+}
+
+@Composable
+private fun SelectionActionBar(
+    onCopy: () -> Unit,
+    onCopyAll: () -> Unit,
+    onClose: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        SpecialKeyButton("Esc", onEsc)
-        SpecialKeyButton("Tab", onTab)
-        SpecialKeyButton("Ctrl", onCtrl)
-        SpecialKeyButton("Alt", onAlt)
-        Spacer(Modifier.weight(1f))
-        SpecialKeyButton("\u25B2", onUp)
-        SpecialKeyButton("\u25BC", onDown)
-        SpecialKeyButton("\u25C0", onLeft)
-        SpecialKeyButton("\u25B6", onRight)
+        Text(
+            text = "Drag to select",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        SelectionActionButton("Copy", onCopy)
+        SelectionActionButton("All", onCopyAll)
+        SelectionActionButton("Close", onClose)
     }
 }
 
 @Composable
-private fun SpecialKeyButton(label: String, onClick: () -> Unit) {
+private fun SelectionActionButton(label: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerHighest)
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             fontFamily = FontFamily.Monospace
         )
@@ -785,10 +824,14 @@ private fun createWebView(
         isFocusableInTouchMode = true
 
         setOnTouchListener { v, event ->
-            v.performClick()
-            v.requestFocus()
-            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(v, InputMethodManager.SHOW_IMPLICIT)
+            // En modo selección NO abrimos el teclado: el arrastre debe seleccionar texto, no tipear.
+            val selecting = (v.tag as? TerminalBridge)?.selectionMode == true
+            if (!selecting) {
+                v.performClick()
+                v.requestFocus()
+                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(v, InputMethodManager.SHOW_IMPLICIT)
+            }
             false
         }
 

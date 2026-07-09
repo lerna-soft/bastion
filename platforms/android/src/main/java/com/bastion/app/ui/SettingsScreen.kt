@@ -34,10 +34,14 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -74,7 +78,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bastion.app.BastionApp
 import com.bastion.app.BuildConfig
+import com.bastion.app.UpdateState
 import com.bastion.app.data.AppSettings
 import com.bastion.app.data.ApiKey
 import com.bastion.app.data.VaultRepository
@@ -93,6 +99,7 @@ import kotlinx.coroutines.withContext
 private val settingsSections = listOf(
     "general" to "General",
     "appearance" to "Appearance",
+    "updates" to "Updates",
     "about" to "About"
 )
 
@@ -160,6 +167,7 @@ fun SettingsContent(
                     apiKeys = apiKeys,
                     repository = repository
                 )
+                "updates" -> UpdatesSection()
                 "about" -> AboutSection()
             }
         }
@@ -171,7 +179,8 @@ private fun SettingsSidebar(activeSection: String, onSectionSelected: (String) -
     val icons = mapOf(
         "general" to Icons.Default.Settings, "notifications" to Icons.Default.NotificationsActive,
         "appearance" to Icons.Default.Palette, "security" to Icons.Default.Security,
-        "api-keys" to Icons.Default.VpnKey, "about" to Icons.Default.Info
+        "api-keys" to Icons.Default.VpnKey, "updates" to Icons.Default.SystemUpdate,
+        "about" to Icons.Default.Info
     )
 
     Column(
@@ -572,6 +581,103 @@ private fun ApiKeyRow(label: String, keyValue: String, created: String,
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(20.dp).clickable(onClick = onRevoke).padding(2.dp))
         }
+    }
+}
+
+@Composable
+private fun UpdatesSection() {
+    val context = LocalContext.current
+    val app = remember(context) { context.applicationContext as? BastionApp }
+    val updateState = app?.updateState?.collectAsState()?.value ?: UpdateState.Idle
+    // Distingue "aún no he buscado" de "busqué y estoy al día" (ambos son UpdateState.Idle).
+    var checkedOnce by remember { mutableStateOf(false) }
+
+    SectionCard(title = "Software Updates", icon = Icons.Default.SystemUpdate) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            SectionLabel("Current Version")
+            Text("v${BuildConfig.VERSION_NAME}", color = MaterialTheme.colorScheme.secondary,
+                fontSize = 13.sp, fontFamily = FontFamily.Monospace)
+        }
+        Spacer(Modifier.height(20.dp))
+
+        when (val state = updateState) {
+            is UpdateState.Checking -> {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text("Checking for updates…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                }
+            }
+            is UpdateState.Available -> {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("New version available: v${state.info.versionName}",
+                        color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    if (state.info.changelog.isNotBlank()) {
+                        Text(state.info.changelog.take(400),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    UpdateActionButton("Download & Install", primary = true) {
+                        app?.downloadUpdate(state.info)
+                    }
+                }
+            }
+            is UpdateState.Downloading -> {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Downloading v${state.info.versionName}… ${state.progress}%",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                    LinearProgressIndicator(
+                        progress = { state.progress / 100f },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.outlineVariant
+                    )
+                }
+            }
+            is UpdateState.Ready -> {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text("Launching installer…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                }
+            }
+            is UpdateState.Error -> {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Update check failed: ${state.msg}",
+                        color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                    UpdateActionButton("Retry") { app?.checkForUpdate() }
+                }
+            }
+            is UpdateState.Idle -> {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (checkedOnce) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Text("You're up to date", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        }
+                    }
+                    UpdateActionButton("Check for Updates", primary = true) {
+                        checkedOnce = true
+                        app?.checkForUpdate()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdateActionButton(text: String, primary: Boolean = false, onClick: () -> Unit) {
+    val bg = if (primary) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
+    val fg = if (primary) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    Box(
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(bg)
+            .clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 10.dp)
+    ) {
+        Text(text, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 

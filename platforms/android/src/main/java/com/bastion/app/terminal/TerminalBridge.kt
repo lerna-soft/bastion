@@ -1,5 +1,8 @@
 package com.bastion.app.terminal
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -10,6 +13,15 @@ class TerminalBridge(private val webView: WebView) {
     companion object {
         private const val TAG = "TerminalBridge"
     }
+
+    /**
+     * Modo selección: mientras esté activo, un arrastre con el dedo conduce la selección propia de
+     * xterm.js (vía eventos de ratón sintéticos en el WebView) en lugar de mover el scroll, y el
+     * listener táctil nativo NO abre el teclado. Lo lee [createWebView] en su OnTouchListener.
+     */
+    @Volatile
+    var selectionMode: Boolean = false
+        private set
 
     private val _onData = Channel<String>(Channel.BUFFERED)
     val onData: Channel<String> = _onData
@@ -82,6 +94,39 @@ class TerminalBridge(private val webView: WebView) {
             else -> return
         }
         onData(raw)
+    }
+
+    /** Activa/desactiva el modo selección (arrastre = seleccionar, sin teclado). */
+    fun setSelectionMode(enabled: Boolean) {
+        selectionMode = enabled
+        webView.post {
+            webView.evaluateJavascript("setSelectionMode($enabled)", null)
+        }
+    }
+
+    /** Copia al portapapeles el texto actualmente seleccionado en la terminal. */
+    fun copySelection() {
+        webView.post {
+            webView.evaluateJavascript("copySelection()", null)
+        }
+    }
+
+    /** Copia al portapapeles todo el contenido del buffer de la terminal. */
+    fun copyAll() {
+        webView.post {
+            webView.evaluateJavascript("copyAll()", null)
+        }
+    }
+
+    /** Llamado desde JS con el texto seleccionado (o todo el buffer) para copiar al portapapeles. */
+    @JavascriptInterface
+    fun copyToClipboard(text: String) {
+        if (text.isEmpty()) return
+        webView.post {
+            val cm = webView.context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                ?: return@post
+            cm.setPrimaryClip(ClipData.newPlainText("Bastion Terminal", text))
+        }
     }
 
     fun initializeJs() {
