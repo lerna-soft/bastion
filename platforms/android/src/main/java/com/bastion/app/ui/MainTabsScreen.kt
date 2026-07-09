@@ -82,7 +82,10 @@ internal fun VaultTabContent(
     val context = LocalContext.current
     var crashText by remember { mutableStateOf<String?>(null) }
 
-    scope.launch {
+    // Leer (y consumir) el crash log una sola vez por entrada a la pantalla. Antes esto vivía en el
+    // cuerpo del composable, así que se relanzaba en CADA recomposición; como lee-y-borra el archivo,
+    // cualquier recomposición temprana podía consumir el stack trace antes de mostrarlo.
+    LaunchedEffect(Unit) {
         crashText = withContext(Dispatchers.IO) {
             val f = File(context.filesDir, "bastion_crash.log")
             if (f.exists()) f.readText().also { f.delete() } else null

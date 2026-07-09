@@ -254,9 +254,22 @@ object RemoteLogger {
         Log.e(TAG, msg, throwable)
         addRecent("CRASH", TAG, msg)
         val entry = LogEntry("CRASH", TAG, msg, Log.getStackTraceString(throwable))
-        enqueue(entry)
-        forceFlush()
-        // Also sync flush the pending file as last resort
+        persistToFile(entry)
+        // Send inline, NOT via enqueue()+forceFlush(): the process may be killed right after this
+        // call returns, and forceFlush() only reads whatever is already in [buffer] — the same race
+        // sendNow() was written to avoid for e(). logQueue.tryEmit() needs its scope.launch collector
+        // to run before the entry lands in [buffer], which isn't guaranteed in time, so every crash
+        // was silently dropped from the server logs. Build the batch from [entry] directly instead.
+        try {
+            val pending = synchronized(buffer) {
+                val b = buffer.toList()
+                buffer.clear()
+                b
+            }
+            httpPost(buildJsonArray(pending + entry))
+        } catch (_: Exception) { }
+        // Also sync flush the pending file as last resort (covers the case where httpPost above
+        // failed transiently but a retry via the file-based path succeeds).
         dataDir?.let { dir ->
             try {
                 val f = pendingFile(dir)
