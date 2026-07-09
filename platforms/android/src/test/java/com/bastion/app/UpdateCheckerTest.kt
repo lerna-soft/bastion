@@ -22,7 +22,7 @@ class UpdateCheckerTest {
           "assets": [
             {
               "name": "bastion-android-v1.1.25.apk",
-              "browser_download_url": "https://github.com/lerna-admin/bastion/releases/download/v1.1.25/bastion-android-v1.1.25.apk",
+              "browser_download_url": "https://github.com/lerna-soft/bastion/releases/download/v1.1.25/bastion-android-v1.1.25.apk",
               "size": 23609861
             }
           ]
@@ -38,7 +38,7 @@ class UpdateCheckerTest {
         assertEquals("bastion-android-v1.1.25.apk", info?.fileName)
         assertEquals(23609861L, info?.fileSize)
         assertEquals(
-            "https://github.com/lerna-admin/bastion/releases/download/v1.1.25/bastion-android-v1.1.25.apk",
+            "https://github.com/lerna-soft/bastion/releases/download/v1.1.25/bastion-android-v1.1.25.apk",
             info?.downloadUrl
         )
     }

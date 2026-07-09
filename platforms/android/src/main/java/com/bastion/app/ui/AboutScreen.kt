@@ -162,15 +162,15 @@ fun AboutScreen(
             // Footer Links
             FooterLink(
                 "Privacy Policy",
-                "https://github.com/lerna-admin/bastion/wiki/Privacy"
+                "https://github.com/lerna-soft/bastion/wiki/Privacy"
             )
             FooterLink(
                 "Terms of Service",
-                "https://github.com/lerna-admin/bastion/wiki/Terms"
+                "https://github.com/lerna-soft/bastion/wiki/Terms"
             )
             FooterLink(
                 "Security Audit",
-                "https://github.com/lerna-admin/bastion/security"
+                "https://github.com/lerna-soft/bastion/security"
             )
 
             Spacer(Modifier.height(24.dp))

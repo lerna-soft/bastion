@@ -492,7 +492,7 @@ private fun StatsRow(keyCount: Int, activeCount: Int) {
             linkText = "View Audit History",
             onLinkClick = {
                 context.startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/security"))
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-soft/bastion/security"))
                 )
             }
         )

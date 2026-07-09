@@ -616,12 +616,12 @@ private fun AboutSection() {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 AboutButton("Documentation") {
                     context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/wiki"))
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-soft/bastion/wiki"))
                     )
                 }
                 AboutButton("Support Portal") {
                     context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/issues"))
+                        Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-soft/bastion/issues"))
                     )
                 }
             }

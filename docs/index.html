@@ -1,146 +1,294 @@
-<!doctype html>
-<html lang="es">
+<!DOCTYPE html>
+<html class="dark" lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bastion — Descargas</title>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Bastion | Secure Multi-tab SSH Terminal</title>
+<meta name="description" content="Bastion — a fast, secure multi-tab SSH terminal client. Available for Android now, Windows/Linux/Mac coming soon."/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Inter:wght@300..700&family=Public+Sans:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "surface-variant": "#21262d", "on-background": "#e1e5ef",
+          "on-secondary-container": "#21d6be", "secondary": "#31dec6",
+          "secondary-dim": "#08cfb8", "primary": "#aec9eb",
+          "outline-variant": "#434850", "surface-container-lowest": "#000000",
+          "surface-dim": "#0c0e12", "on-surface": "#e1e5ef",
+          "surface-container": "#161a1f", "surface-container-high": "#1c2026",
+          "surface-container-highest": "#21262d", "error-dim": "#c54d4a",
+          "on-secondary-fixed": "#00483f", "surface": "#0c0e12",
+          "on-surface-variant": "#a7abb4", "background": "#0c0e12",
+          "outline": "#71767e", "error": "#fa746f", "on-secondary": "#004940",
+          "primary-dim": "#a1bbdd"
+        },
+        borderRadius: { DEFAULT: "0.25rem", lg: "0.5rem", xl: "0.75rem", full: "9999px" },
+        fontFamily: {
+          headline: ["Space Grotesk", "sans-serif"],
+          body: ["Inter", "sans-serif"],
+          label: ["Public Sans", "sans-serif"],
+          mono: ["JetBrains Mono", "monospace"]
+        }
+      }
+    }
+  }
+</script>
 <style>
-  :root {
-    color-scheme: light dark;
-    --bg: #0d1117;
-    --card: #161b22;
-    --border: #30363d;
-    --text: #e6edf3;
-    --muted: #8b949e;
-    --accent: #4aa8ff;
-    --accent2: #35e0c8;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    padding: 32px 16px 64px;
-  }
-  .wrap { max-width: 760px; margin: 0 auto; }
-  h1 {
-    font-size: 28px;
-    margin: 0 0 4px;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .sub { color: var(--muted); margin: 0 0 32px; font-size: 14px; }
-  .card {
-    border: 1px solid var(--border);
-    background: var(--card);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 16px;
-  }
-  .card h2 { margin: 0 0 6px; font-size: 18px; }
-  .card .desc { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
-  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  .btn {
-    display: inline-block;
-    padding: 9px 16px;
-    border-radius: 6px;
-    background: var(--accent);
-    color: #06121f;
-    font-weight: 600;
-    font-size: 13px;
-    text-decoration: none;
-  }
-  .btn.disabled { background: transparent; border: 1px solid var(--border); color: var(--muted); pointer-events: none; }
-  .meta { font-size: 12px; color: var(--muted); }
-  .status { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
-  .status.ok { color: var(--accent2); border-color: var(--accent2); }
-  footer { margin-top: 32px; font-size: 12px; color: var(--muted); text-align: center; }
-  footer a { color: var(--accent); }
+  body { background-color: #0c0e12; color: #e1e5ef; overflow-x: hidden; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .glow-cyan { box-shadow: 0 0 40px -10px rgba(49, 222, 198, 0.3); }
+  .hero-gradient { background: radial-gradient(circle at top, rgba(49, 222, 198, 0.1) 0%, rgba(12, 14, 18, 0) 70%); }
+  .glass-card { background: rgba(33, 38, 45, 0.4); backdrop-filter: blur(8px); border: 1px solid rgba(67, 72, 80, 0.5); }
+  .btn-disabled { opacity: .5; pointer-events: none; }
 </style>
 </head>
-<body>
-  <div class="wrap">
-    <h1>Bastion</h1>
-    <p class="sub">Cliente SSH multiplataforma — descarga la versión de tu sistema.</p>
+<body class="font-body selection:bg-secondary selection:text-surface">
 
-    <div class="card" id="card-android">
-      <div class="row">
-        <div>
-          <h2>Android</h2>
-          <p class="desc">APK firmado, instala directo o vía "Update now" dentro de la app.</p>
-        </div>
-        <span class="status" id="status-android">buscando…</span>
-      </div>
-      <div class="row">
-        <span class="meta" id="meta-android"></span>
-        <a class="btn disabled" id="dl-android" href="#">Cargando…</a>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <div>
-          <h2>Windows / Linux / Mac</h2>
-          <p class="desc">Compose Desktop — en construcción (HIM-016).</p>
-        </div>
-        <span class="status">próximamente</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="row">
-        <div>
-          <h2>iOS</h2>
-          <p class="desc">Bloqueado técnicamente: la librería SSH actual no corre en Kotlin/Native.</p>
-        </div>
-        <span class="status">bloqueado</span>
-      </div>
-    </div>
-
-    <footer>
-      Código fuente en <a href="https://github.com/lerna-admin/bastion">github.com/lerna-admin/bastion</a>
-    </footer>
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 py-4 bg-surface/80 backdrop-blur-md border-b border-outline-variant">
+  <div class="flex items-center gap-2">
+    <svg class="w-8 h-8" viewBox="0 0 108 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bastionGrad" x1="30" y1="24" x2="78" y2="88" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#4AA8FF"/><stop offset="1" stop-color="#35E0C8"/>
+        </linearGradient>
+      </defs>
+      <path d="M54,24 L78,33 L78,52 C78,72 66,82 54,88 C42,82 30,72 30,52 L30,33 Z" stroke="url(#bastionGrad)" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M42,46 L52,54 L42,62" stroke="url(#bastionGrad)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M56,62 L68,62" stroke="#35E0C8" stroke-width="5" stroke-linecap="round"/>
+    </svg>
+    <span class="text-2xl font-headline font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">Bastion</span>
   </div>
+  <nav class="hidden md:flex items-center gap-8">
+    <a class="text-on-surface-variant hover:text-on-surface transition-colors font-body" href="#features">Features</a>
+    <a class="text-on-surface-variant hover:text-on-surface transition-colors font-body" href="#platforms">Platforms</a>
+  </nav>
+  <div class="flex items-center gap-4">
+    <a href="https://github.com/lerna-soft/bastion" class="material-symbols-outlined text-on-surface-variant hover:bg-surface-container-highest p-2 rounded-lg transition-all duration-200" aria-label="GitHub">code</a>
+    <a id="nav-download" href="#platforms" class="bg-primary-container text-on-primary-container px-5 py-2 rounded-lg font-label font-semibold transition-all duration-200 active:scale-95 bg-secondary text-surface">Download</a>
+  </div>
+</header>
+
+<main class="relative pt-32 pb-24 px-6 md:px-12 lg:px-24">
+
+  <section class="hero-gradient min-h-[60vh] flex flex-col items-center justify-center text-center max-w-4xl mx-auto mb-32">
+    <div class="mb-8">
+      <svg class="w-24 h-24 md:w-32 md:h-32" style="filter: drop-shadow(0 0 20px rgba(49,222,198,0.4))" viewBox="0 0 108 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bastionGradHero" x1="30" y1="24" x2="78" y2="88" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#4AA8FF"/><stop offset="1" stop-color="#35E0C8"/>
+          </linearGradient>
+        </defs>
+        <path d="M54,24 L78,33 L78,52 C78,72 66,82 54,88 C42,82 30,72 30,52 L30,33 Z" stroke="url(#bastionGradHero)" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M42,46 L52,54 L42,62" stroke="url(#bastionGradHero)" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M56,62 L68,62" stroke="#35E0C8" stroke-width="4.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1 class="text-5xl md:text-8xl font-headline font-bold mb-6 tracking-tight text-on-surface">Bastion</h1>
+    <p class="text-lg md:text-2xl text-on-surface-variant mb-12 max-w-2xl font-light leading-relaxed">
+      A fast, secure multi-tab SSH terminal for your phone — with desktop on the way.
+    </p>
+    <div class="flex flex-col items-center gap-4">
+      <a id="hero-download" href="#platforms" class="flex items-center gap-3 bg-secondary text-on-secondary px-8 py-4 rounded-xl font-headline font-bold text-lg hover:brightness-110 transition-all duration-200 shadow-[0_0_30px_-5px_rgba(49,222,198,0.5)] active:scale-95">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">download</span>
+        <span id="hero-download-label">Download for Android</span>
+      </a>
+      <p class="text-sm font-mono text-on-surface-variant/60" id="hero-meta">buscando última versión…</p>
+    </div>
+  </section>
+
+  <section id="features" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-32">
+    <div class="glass-card p-8 rounded-2xl hover:border-secondary/30 transition-all duration-300">
+      <span class="material-symbols-outlined text-secondary text-3xl mb-4">tabs</span>
+      <h3 class="text-xl font-headline font-semibold mb-3">Multi-tab sessions</h3>
+      <p class="text-on-surface-variant text-sm leading-relaxed">Manage several concurrent server connections and switch instantly between them.</p>
+    </div>
+    <div class="glass-card p-8 rounded-2xl hover:border-secondary/30 transition-all duration-300">
+      <span class="material-symbols-outlined text-secondary text-3xl mb-4">key</span>
+      <h3 class="text-xl font-headline font-semibold mb-3">Password + SSH key auth</h3>
+      <p class="text-on-surface-variant text-sm leading-relaxed">Support for password and ed25519/RSA key authentication.</p>
+    </div>
+    <div class="glass-card p-8 rounded-2xl hover:border-secondary/30 transition-all duration-300">
+      <span class="material-symbols-outlined text-secondary text-3xl mb-4">refresh</span>
+      <h3 class="text-xl font-headline font-semibold mb-3">Resilient sessions</h3>
+      <p class="text-on-surface-variant text-sm leading-relaxed">Sessions survive backgrounding via SSH keepalive and a foreground service.</p>
+    </div>
+    <div class="glass-card p-8 rounded-2xl hover:border-secondary/30 transition-all duration-300">
+      <span class="material-symbols-outlined text-secondary text-3xl mb-4">lock</span>
+      <h3 class="text-xl font-headline font-semibold mb-3">Encrypted vault</h3>
+      <p class="text-on-surface-variant text-sm leading-relaxed">Credentials encrypted at rest via Android Keystore.</p>
+    </div>
+  </section>
+
+  <section id="platforms" class="mb-32">
+    <h2 class="text-3xl md:text-5xl font-headline font-bold text-center mb-4">Availability</h2>
+    <p class="text-center text-on-surface-variant mb-16">Only Android is available right now — everything else is in progress.</p>
+    <div class="flex flex-wrap justify-center gap-6">
+
+      <div class="w-full md:w-80 glass-card p-8 rounded-3xl border-secondary/50 glow-cyan relative overflow-hidden">
+        <div class="flex justify-between items-start mb-8">
+          <div>
+            <h4 class="text-2xl font-headline font-bold mb-1">Android</h4>
+            <span class="text-[10px] tracking-widest uppercase font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded" id="android-status">buscando…</span>
+          </div>
+          <span class="material-symbols-outlined text-secondary text-4xl">android</span>
+        </div>
+        <div class="mb-8">
+          <p class="text-on-surface-variant text-sm mb-1">Version</p>
+          <p class="text-on-surface font-semibold" id="android-meta">—</p>
+        </div>
+        <a id="android-download" href="#" class="block text-center w-full bg-secondary text-on-secondary py-3 rounded-xl font-bold hover:brightness-110 transition-all btn-disabled">Cargando…</a>
+      </div>
+
+      <div class="w-full md:w-72 glass-card p-8 rounded-3xl opacity-80">
+        <div class="flex justify-between items-start mb-8">
+          <div>
+            <h4 class="text-xl font-headline font-semibold mb-1">Windows</h4>
+            <span class="text-[10px] tracking-widest uppercase font-bold text-on-surface-variant/50 bg-surface-variant px-2 py-0.5 rounded">SOON</span>
+          </div>
+          <span class="material-symbols-outlined text-on-surface-variant text-3xl">desktop_windows</span>
+        </div>
+        <div class="mb-8 text-sm">
+          <p class="text-on-surface-variant/60 mb-1">Status</p>
+          <p class="text-on-surface-variant">In development</p>
+        </div>
+        <button class="w-full bg-surface-container-highest text-on-surface-variant/40 py-3 rounded-xl font-bold cursor-not-allowed" disabled>Coming soon</button>
+      </div>
+
+      <div class="w-full md:w-72 glass-card p-8 rounded-3xl opacity-80">
+        <div class="flex justify-between items-start mb-8">
+          <div>
+            <h4 class="text-xl font-headline font-semibold mb-1">Linux</h4>
+            <span class="text-[10px] tracking-widest uppercase font-bold text-on-surface-variant/50 bg-surface-variant px-2 py-0.5 rounded">SOON</span>
+          </div>
+          <span class="material-symbols-outlined text-on-surface-variant text-3xl">terminal</span>
+        </div>
+        <div class="mb-8 text-sm">
+          <p class="text-on-surface-variant/60 mb-1">Status</p>
+          <p class="text-on-surface-variant">In development</p>
+        </div>
+        <button class="w-full bg-surface-container-highest text-on-surface-variant/40 py-3 rounded-xl font-bold cursor-not-allowed" disabled>Coming soon</button>
+      </div>
+
+      <div class="w-full md:w-72 glass-card p-8 rounded-3xl opacity-80">
+        <div class="flex justify-between items-start mb-8">
+          <div>
+            <h4 class="text-xl font-headline font-semibold mb-1">macOS</h4>
+            <span class="text-[10px] tracking-widest uppercase font-bold text-on-surface-variant/50 bg-surface-variant px-2 py-0.5 rounded">SOON</span>
+          </div>
+          <span class="material-symbols-outlined text-on-surface-variant text-3xl">laptop_mac</span>
+        </div>
+        <div class="mb-8 text-sm">
+          <p class="text-on-surface-variant/60 mb-1">Status</p>
+          <p class="text-on-surface-variant">In development</p>
+        </div>
+        <button class="w-full bg-surface-container-highest text-on-surface-variant/40 py-3 rounded-xl font-bold cursor-not-allowed" disabled>Coming soon</button>
+      </div>
+
+      <div class="w-full md:w-72 glass-card p-8 rounded-3xl opacity-40">
+        <div class="flex justify-between items-start mb-8">
+          <div>
+            <h4 class="text-xl font-headline font-semibold mb-1">iOS</h4>
+            <span class="text-[10px] tracking-widest uppercase font-bold text-error/70 bg-error/10 px-2 py-0.5 rounded">BLOCKED</span>
+          </div>
+          <span class="material-symbols-outlined text-on-surface-variant text-3xl">phone_iphone</span>
+        </div>
+        <div class="mb-8 text-sm">
+          <p class="text-on-surface-variant/60 mb-1">Status</p>
+          <p class="text-on-surface-variant">SSH library incompatible with Kotlin/Native</p>
+        </div>
+        <button class="w-full bg-surface-container-highest text-on-surface-variant/40 py-3 rounded-xl font-bold cursor-not-allowed" disabled>Not planned</button>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="max-w-6xl mx-auto">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl md:text-5xl font-headline font-bold mb-4">Multi-tab, always connected</h2>
+      <p class="text-on-surface-variant">A real terminal, not a toy — SSH keepalive, resilient sessions, no shell tricks.</p>
+    </div>
+    <div class="relative">
+      <div class="absolute inset-0 -m-4 bg-gradient-to-br from-secondary/20 to-primary/5 rounded-[2rem] blur-2xl"></div>
+      <div class="relative glass-card rounded-2xl overflow-hidden shadow-2xl border-outline-variant/30">
+        <div class="bg-surface-container-high px-6 py-3 flex items-center justify-between border-b border-outline-variant/20">
+          <div class="flex gap-1.5">
+            <div class="w-3 h-3 rounded-full bg-error-dim"></div>
+            <div class="w-3 h-3 rounded-full bg-secondary-dim"></div>
+            <div class="w-3 h-3 rounded-full bg-primary-dim"></div>
+          </div>
+          <div class="text-[10px] font-mono text-on-surface-variant bg-surface px-4 py-1 rounded-full border border-outline-variant/20">ssh://production-01</div>
+          <div class="w-12"></div>
+        </div>
+        <div class="bg-black aspect-video p-6 font-mono text-sm text-secondary overflow-hidden">
+          <p class="text-on-surface-variant">$ ssh deploy@production-01</p>
+          <p class="text-on-surface-variant">Last login: Wed Jul 8 22:41:03 2026</p>
+          <p class="mt-2">deploy@production-01:~$ <span class="text-on-surface">ls -la</span></p>
+          <p class="text-on-surface-variant">drwxr-xr-x  4 deploy deploy  4096 Jul  8 22:40 .</p>
+          <p class="text-on-surface-variant">-rw-r--r--  1 deploy deploy   612 Jul  8 22:38 docker-compose.yml</p>
+          <p class="mt-2">deploy@production-01:~$ <span class="text-on-surface animate-pulse">_</span></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="w-full py-12 px-8 flex flex-col md:flex-row justify-between items-center gap-6 bg-surface-container-lowest border-t border-outline-variant">
+  <div class="flex flex-col items-center md:items-start gap-2">
+    <div class="flex items-center gap-2">
+      <span class="text-xl font-headline font-semibold text-on-surface">Bastion</span>
+    </div>
+    <p class="font-label text-on-surface-variant text-sm">© 2026 Bastion. Open source.</p>
+  </div>
+  <div class="flex gap-8">
+    <a class="font-label text-on-surface-variant hover:text-secondary transition-colors" href="https://github.com/lerna-soft/bastion">GitHub</a>
+    <a class="font-label text-on-surface-variant hover:text-secondary transition-colors" href="https://github.com/lerna-soft/bastion/releases">Releases</a>
+  </div>
+</footer>
 
 <script>
-  const REPO = "lerna-admin/bastion";
+  const REPO = "lerna-soft/bastion";
 
   function fmtSize(bytes) {
     if (!bytes) return "";
-    const mb = bytes / (1024 * 1024);
-    return mb.toFixed(1) + " MB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }
 
   fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
-    .then(r => {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(release => {
-      const androidAsset = (release.assets || []).find(a => a.name.startsWith("bastion-android-"));
-      const statusEl = document.getElementById("status-android");
-      const dlEl = document.getElementById("dl-android");
-      const metaEl = document.getElementById("meta-android");
+      const asset = (release.assets || []).find(a => a.name.startsWith("bastion-android-"));
+      const statusEl = document.getElementById("android-status");
+      const metaEl = document.getElementById("android-meta");
+      const dlEl = document.getElementById("android-download");
+      const heroMeta = document.getElementById("hero-meta");
+      const heroDl = document.getElementById("hero-download");
+      const navDl = document.getElementById("nav-download");
 
-      if (androidAsset) {
-        statusEl.textContent = release.tag_name;
-        statusEl.classList.add("ok");
-        dlEl.href = androidAsset.browser_download_url;
-        dlEl.textContent = "Descargar " + androidAsset.name;
-        dlEl.classList.remove("disabled");
-        metaEl.textContent = fmtSize(androidAsset.size) + " · publicado " +
-          new Date(release.published_at).toLocaleDateString("es-CO");
+      if (asset) {
+        statusEl.textContent = "AVAILABLE";
+        metaEl.textContent = release.tag_name + " · " + fmtSize(asset.size);
+        dlEl.href = asset.browser_download_url;
+        dlEl.textContent = "Download";
+        dlEl.classList.remove("btn-disabled");
+
+        heroMeta.textContent = release.tag_name + " · APK · " + fmtSize(asset.size);
+        heroDl.href = asset.browser_download_url;
+        navDl.href = asset.browser_download_url;
       } else {
-        statusEl.textContent = "sin asset";
-        dlEl.textContent = "No disponible";
+        statusEl.textContent = "NO ASSET";
+        heroMeta.textContent = "No release available yet";
       }
     })
     .catch(err => {
-      document.getElementById("status-android").textContent = "error";
-      document.getElementById("dl-android").textContent = "No se pudo consultar GitHub";
+      document.getElementById("hero-meta").textContent = "Could not reach GitHub — see Releases page";
+      document.getElementById("android-status").textContent = "ERROR";
       console.error(err);
     });
 </script>

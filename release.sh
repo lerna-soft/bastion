@@ -16,7 +16,7 @@ set -euo pipefail
 #   - JDK at $HOME/dev-tools/jdk-17.0.19+10
 #   - Android SDK at $HOME/android-build-env/android-sdk
 #   - gh CLI authenticated
-#   - git remote 'origin' set to lerna-admin/bastion
+#   - git remote 'origin' set to lerna-soft/bastion
 #   - BASTION_KEYSTORE_PASSWORD exportada (ver ~/.bastion-secrets.env, NUNCA en el repo)
 # ============================================================
 
@@ -25,7 +25,7 @@ GRADLE_FILE="$PROJECT_DIR/platforms/android/build.gradle.kts"
 JDK_DIR="$HOME/dev-tools/jdk-17.0.19+10"
 SDK_DIR="$HOME/android-build-env/android-sdk"
 OUT_DIR="$HOME/apk-share"
-GITHUB_REPO="lerna-admin/bastion"
+GITHUB_REPO="lerna-soft/bastion"
 
 # Password del keystore: nunca hardcodeada. Se toma del entorno o de un archivo
 # gitignored fuera del repo.
@@ -120,7 +120,7 @@ gh release create "v$NEW_VERSION" "$OUT_DIR/$ASSET_NAME" \
 ### Download
 - Android: adjunto en este release (${ASSET_NAME})
 - Desktop (Windows/Linux/Mac): próximamente
-- Índice de descargas: https://lerna-admin.github.io/bastion/" \
+- Índice de descargas: https://lerna-soft.github.io/bastion/" \
     --repo "$GITHUB_REPO" 2>&1
 
 echo "✅ Release created: https://github.com/$GITHUB_REPO/releases/tag/v$NEW_VERSION"

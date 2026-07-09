@@ -9,7 +9,7 @@ Rutas: proyecto en `/home/lerna/proyectos/bastion` (repo git independiente). Des
 
 Servidor: `serve.py` en puerto **8765**, URL `http://192.168.0.100:8765/`. Endpoint update: `/update`. Endpoint logs: `POST /logs` (recepción) y `GET /logs` (visor). Endpoint APK: `GET /apk-share/bastion-v*.apk`.
 
-GitHub: `https://github.com/lerna-admin/bastion` (privado) — releases solo con notas, sin subir APK (RHD-BST-003, ver [[reglas-rhd-bst]]).
+GitHub: `https://github.com/lerna-soft/bastion` (público desde HIM-018, transferido de lerna-admin) — releases con APK adjunto como asset real (RHD-BST-003 quedó obsoleta, ver [[reglas-rhd-bst]] y AGENTS.md). Pages: `https://lerna-soft.github.io/bastion/`.
 
 Stitch (diseño, MCP):
 - API Key: en `~/.bastion-secrets.env` (`STITCH_API_KEY`) — NUNCA en archivos del repo (público desde HIM-018), ver `AGENTS.md` sección "Secretos"

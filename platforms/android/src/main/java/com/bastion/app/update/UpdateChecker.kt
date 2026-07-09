@@ -27,7 +27,7 @@ object UpdateChecker {
     private const val TAG = "UpdateChecker"
 
     // HIM-018: repo público, releases reales en GitHub (antes solo notas + servidor local).
-    private const val GITHUB_REPO = "lerna-admin/bastion"
+    private const val GITHUB_REPO = "lerna-soft/bastion"
     private const val ANDROID_ASSET_PREFIX = "bastion-android-"
 
     /**

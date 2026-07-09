@@ -677,7 +677,7 @@ private fun Sidebar(
                     label = "Documentation",
                     onClick = {
                         context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/wiki"))
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-soft/bastion/wiki"))
                         )
                     }
                 )
@@ -686,7 +686,7 @@ private fun Sidebar(
                     label = "Support",
                     onClick = {
                         context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion/issues"))
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-soft/bastion/issues"))
                         )
                     }
                 )
@@ -908,7 +908,7 @@ private fun AppHeader(
                 IconButton(
                     onClick = {
                         context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-admin/bastion"))
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-soft/bastion"))
                         )
                     },
                     modifier = Modifier.size(32.dp)

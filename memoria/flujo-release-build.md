@@ -15,7 +15,7 @@ metadata:
 6. Copia a `~/apk-share/bastion-v{VERSION}.apk` y `~/apk-share/bastion-debug.apk` (el nombre del
    alias sigue diciendo "debug" por compatibilidad, pero el binario ya es `release`).
 7. `git tag -a vX.Y.Z` + push tag + push master.
-8. `gh release create` en `lerna-admin/bastion` — solo notas, sin subir APK (RHD-BST-003).
+8. `gh release create` en `lerna-soft/bastion` — solo notas, sin subir APK (RHD-BST-003).
 9. Genera/actualiza `~/apk-share/latest.json` (versionName, versionCode, downloadUrl, changelog, etc.).
 10. Mata proceso en :8765 y reinicia `serve.py` en background.
 
