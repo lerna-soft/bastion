@@ -27,6 +27,7 @@
 
     <script src="xterm.js"></script>
     <script src="xterm-addon-fit.js"></script>
+    <script src="selection-logic.js"></script>
     <script>
         var THEMES = {
             'stitch': {
@@ -199,7 +200,6 @@
         // ancla; arrastrar una manija = ajustar ese extremo; tap corto = cerrar.
         var selActive = false;
         var pressCell = null;   // celda donde empezó la pulsación (ancla del arrastre "fresh")
-        var anchorCell = null;  // extremo fijo mientras se arrastra una manija
         var dragMode = null;    // null | 'fresh' | 'start' | 'end'
         var lpTimer = null;
         var lpFired = false;
@@ -216,27 +216,16 @@
             return (document.querySelector('.xterm-screen') || term.element).getBoundingClientRect();
         }
 
-        // Pixel (clientX/clientY) → celda absoluta {col, row} con clamping al viewport.
+        // Pixel (clientX/clientY) → celda absoluta {col, row}. Lógica pura en SelLogic (testeada).
         function cellFromPoint(cx, cy) {
-            var rect = screenRect();
-            var cellW = rect.width / term.cols;
-            var cellH = rect.height / term.rows;
-            var col = Math.floor((cx - rect.left) / cellW);
-            var vrow = Math.floor((cy - rect.top) / cellH);
-            col = Math.max(0, Math.min(term.cols - 1, col));
-            vrow = Math.max(0, Math.min(term.rows - 1, vrow));
-            return { col: col, row: term.buffer.active.viewportY + vrow };
+            return SelLogic.cellFromPoint(cx, cy, screenRect(), term.cols, term.rows,
+                term.buffer.active.viewportY);
         }
-
-        function cmpCell(a, b) { return (a.row - b.row) || (a.col - b.col); }
 
         // Selecciona de la celda a a la b (inclusive), normalizando el orden.
         function applySelection(a, b) {
-            var start = a, end = b;
-            if (cmpCell(b, a) < 0) { start = b; end = a; }
-            var length = (end.row - start.row) * term.cols + (end.col - start.col) + 1;
-            if (length < 1) length = 1;
-            term.select(start.col, start.row, length);
+            var n = SelLogic.normalize(a, b);
+            term.select(n.start.col, n.start.row, SelLogic.selLength(n.start, n.end, term.cols));
         }
 
         // Arrastre unificado (manija o "fresh"): fija el foco bajo el dedo y activa auto-scroll
@@ -252,17 +241,20 @@
             if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
         }
 
-        function updateAutoScroll() {
+        function autoScrollStepNow() {
             var rect = screenRect();
             var edge = Math.max(24, rect.height * 0.12);
-            var dir = 0;
-            if (dragTouchY < rect.top + edge) dir = -1;
-            else if (dragTouchY > rect.bottom - edge) dir = 1;
-            if (dir === 0) { stopAutoScroll(); return; }
+            return SelLogic.autoScrollStep(dragTouchY, rect.top, rect.bottom, edge, 3);
+        }
+
+        function updateAutoScroll() {
+            if (autoScrollStepNow() === 0) { stopAutoScroll(); return; }
             if (autoScrollTimer) return;
             autoScrollTimer = setInterval(function() {
                 if (!activeAnchor) { stopAutoScroll(); return; }
-                term.scrollLines(dir);
+                var step = autoScrollStepNow();
+                if (step === 0) { stopAutoScroll(); return; }
+                term.scrollLines(step);
                 applySelection(activeAnchor, cellFromPoint(dragTouchX, dragTouchY));
             }, 60);
         }
@@ -278,16 +270,9 @@
         // Selecciona la palabra (secuencia de no-espacios) bajo la celda dada.
         function selectWordAt(cell) {
             var line = term.buffer.active.getLine(cell.row);
-            if (!line) { applySelection(cell, cell); anchorCell = cell; return; }
-            var s = line.translateToString(false);
-            if (cell.col >= s.length || !/\S/.test(s[cell.col])) {
-                applySelection(cell, cell); anchorCell = cell; return;
-            }
-            var a = cell.col, b = cell.col;
-            while (a > 0 && /\S/.test(s[a - 1])) a--;
-            while (b < s.length - 1 && /\S/.test(s[b + 1])) b++;
-            applySelection({ col: a, row: cell.row }, { col: b, row: cell.row });
-            anchorCell = { col: a, row: cell.row };
+            var bounds = line ? SelLogic.wordBounds(line.translateToString(false), cell.col) : null;
+            if (!bounds) { applySelection(cell, cell); return; }
+            applySelection({ col: bounds.start, row: cell.row }, { col: bounds.end, row: cell.row });
         }
 
         function placeHandle(el, cx, cy, visible) {
@@ -336,12 +321,22 @@
 
         function exitSelection() {
             selActive = false; dragMode = null; lpFired = false;
-            anchorCell = null; pressCell = null; activeAnchor = null;
+            pressCell = null; activeAnchor = null;
             kbAnchor = null; kbFocus = null;
             stopAutoScroll();
             try { term.clearSelection(); } catch (e) {}
             hideHandles();
             notifySelecting(false);
+        }
+
+        // F1: el SO puede cancelar el gesto (notificación, palm-rejection, gesto de navegación).
+        // Sin esto, dragMode quedaría pegado y el auto-scroll correría para siempre. Aborta el
+        // arrastre pero conserva la selección ya hecha.
+        function cancelDrag() {
+            dragMode = null;
+            stopAutoScroll();
+            if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+            if (selActive) positionHandles();
         }
 
         // Llamadas desde Kotlin para cerrar la selección.
@@ -396,6 +391,7 @@
                 dragMode = null; stopAutoScroll();
                 positionHandles();
             }, { passive: false });
+            el.addEventListener('touchcancel', function() { cancelDrag(); }, { passive: true });
         }
         bindHandle(handleStart, 'start');
         bindHandle(handleEnd, 'end');
@@ -422,21 +418,7 @@
                     kbAnchor = { col: cx, row: cy };
                     kbFocus = { col: cx, row: cy };
                 }
-                var f = { col: kbFocus.col, row: kbFocus.row };
-                if (k === 'ArrowLeft') {
-                    if (f.col > 0) f.col--; else if (f.row > 0) { f.row--; f.col = term.cols - 1; }
-                } else if (k === 'ArrowRight') {
-                    if (f.col < term.cols - 1) f.col++; else { f.row++; f.col = 0; }
-                } else if (k === 'ArrowUp') {
-                    f.row = Math.max(0, f.row - 1);
-                } else if (k === 'ArrowDown') {
-                    f.row = Math.min(term.buffer.active.length - 1, f.row + 1);
-                } else if (k === 'Home') {
-                    f.col = 0;
-                } else if (k === 'End') {
-                    f.col = term.cols - 1;
-                }
-                kbFocus = f;
+                kbFocus = SelLogic.moveFocus(k, kbFocus, term.cols, term.buffer.active.length);
                 selActive = true;
                 ensureVisible(f);
                 applySelection(kbAnchor, kbFocus);
@@ -495,6 +477,8 @@
                 // Tap corto mientras hay selección → cerrar.
                 if (selActive && !lpFired) { exitSelection(); }
             }, { passive: false });
+
+            host.addEventListener('touchcancel', function() { cancelDrag(); }, { passive: true });
         })();
 
         var el = document.getElementById('terminal');
