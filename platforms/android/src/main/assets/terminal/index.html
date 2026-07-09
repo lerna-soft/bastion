@@ -7,10 +7,23 @@
     <link rel="stylesheet" href="xterm.css">
     <style>
         html, body, #terminal { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #1e1e1e; }
+        /* HIM-020: manijas de selección arrastrables (overlay sobre .xterm-screen) */
+        .sel-handle {
+            position: fixed; width: 30px; height: 30px; margin-left: -15px; margin-top: -6px;
+            z-index: 30; display: none; touch-action: none; -webkit-tap-highlight-color: transparent;
+        }
+        .sel-handle .knob {
+            position: absolute; left: 8px; top: 8px; width: 14px; height: 14px;
+            background: #009cce; box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+        }
+        #sel-start .knob { border-radius: 50% 50% 50% 0; }
+        #sel-end .knob { border-radius: 50% 50% 0 50%; }
     </style>
 </head>
 <body>
     <div id="terminal"></div>
+    <div id="sel-start" class="sel-handle"><span class="knob"></span></div>
+    <div id="sel-end" class="sel-handle"><span class="knob"></span></div>
 
     <script src="xterm.js"></script>
     <script src="xterm-addon-fit.js"></script>
@@ -91,7 +104,10 @@
 
         term.open(document.getElementById('terminal'));
 
-        function safeFit() { try { fitAddon.fit(); } catch (e) {} }
+        function safeFit() {
+            try { fitAddon.fit(); } catch (e) {}
+            try { if (typeof positionHandles === 'function' && selActive) positionHandles(); } catch (e) {}
+        }
 
         // Fits escalonados: el WebView puede no tener aún su tamaño real al cargar.
         [50, 150, 300, 600, 1000].forEach(function(d) { setTimeout(safeFit, d); });
@@ -173,25 +189,93 @@
             return currentTheme;
         }
 
-        // --- Selección y copia por PULSACIÓN LARGA (como una terminal normal) ---
-        // xterm.js gestiona su propia selección con eventos de RATÓN; en táctil un arrastre de un
-        // dedo se interpreta como scroll y nunca selecciona. Aquí detectamos una pulsación larga
-        // (dedo quieto ~400 ms) para ENTRAR en selección; desde ahí el arrastre la extiende
-        // (eventos de ratón sintéticos → SelectionService de xterm) y al soltar mostramos la barra
-        // de copiar. Una pulsación larga sin arrastre selecciona la palabra bajo el dedo (doble
-        // clic sintético). No hace falta ningún botón de "modo selección".
-        var selecting = false;
+        // --- Selección de texto con manijas ajustables (HIM-020) ---
+        // xterm.js selecciona por CELDAS (term.select(col, absRow, len)) pero NO trae manijas
+        // arrastrables. Las dibujamos como overlay (position:fixed) sobre .xterm-screen y, al
+        // arrastrarlas, recalculamos la celda bajo el dedo y reconstruimos la selección entre el
+        // ancla (extremo fijo) y el punto arrastrado. Coordenadas de fila = índice ABSOLUTO del
+        // buffer (scrollback incluido): absRow = viewportY(ydisp) + fila_visible.
+        // Gestos: pulsación larga = seleccionar palabra; mantener+arrastrar = extender desde el
+        // ancla; arrastrar una manija = ajustar ese extremo; tap corto = cerrar.
+        var selActive = false;
+        var pressCell = null;   // celda donde empezó la pulsación (ancla del arrastre "fresh")
+        var anchorCell = null;  // extremo fijo mientras se arrastra una manija
+        var dragMode = null;    // null | 'fresh' | 'start' | 'end'
         var lpTimer = null;
-        var lpStartX = 0, lpStartY = 0, lastX = 0, lastY = 0, didDrag = false;
+        var lpFired = false;
+        var downX = 0, downY = 0;
 
-        function screenTarget() { return document.querySelector('.xterm-screen') || term.element; }
+        var handleStart = document.getElementById('sel-start');
+        var handleEnd = document.getElementById('sel-end');
 
-        function fwdMouse(type, x, y, buttons, detail) {
-            var target = (type === 'mousedown') ? screenTarget() : document;
-            target.dispatchEvent(new MouseEvent(type, {
-                bubbles: true, cancelable: true, view: window,
-                clientX: x, clientY: y, button: 0, buttons: buttons || 0, detail: detail || 1
-            }));
+        function screenRect() {
+            return (document.querySelector('.xterm-screen') || term.element).getBoundingClientRect();
+        }
+
+        // Pixel (clientX/clientY) → celda absoluta {col, row} con clamping al viewport.
+        function cellFromPoint(cx, cy) {
+            var rect = screenRect();
+            var cellW = rect.width / term.cols;
+            var cellH = rect.height / term.rows;
+            var col = Math.floor((cx - rect.left) / cellW);
+            var vrow = Math.floor((cy - rect.top) / cellH);
+            col = Math.max(0, Math.min(term.cols - 1, col));
+            vrow = Math.max(0, Math.min(term.rows - 1, vrow));
+            return { col: col, row: term.buffer.active.viewportY + vrow };
+        }
+
+        function cmpCell(a, b) { return (a.row - b.row) || (a.col - b.col); }
+
+        // Selecciona de la celda a a la b (inclusive), normalizando el orden.
+        function applySelection(a, b) {
+            var start = a, end = b;
+            if (cmpCell(b, a) < 0) { start = b; end = a; }
+            var length = (end.row - start.row) * term.cols + (end.col - start.col) + 1;
+            if (length < 1) length = 1;
+            term.select(start.col, start.row, length);
+        }
+
+        // Selecciona la palabra (secuencia de no-espacios) bajo la celda dada.
+        function selectWordAt(cell) {
+            var line = term.buffer.active.getLine(cell.row);
+            if (!line) { applySelection(cell, cell); anchorCell = cell; return; }
+            var s = line.translateToString(false);
+            if (cell.col >= s.length || !/\S/.test(s[cell.col])) {
+                applySelection(cell, cell); anchorCell = cell; return;
+            }
+            var a = cell.col, b = cell.col;
+            while (a > 0 && /\S/.test(s[a - 1])) a--;
+            while (b < s.length - 1 && /\S/.test(s[b + 1])) b++;
+            applySelection({ col: a, row: cell.row }, { col: b, row: cell.row });
+            anchorCell = { col: a, row: cell.row };
+        }
+
+        function placeHandle(el, cx, cy, visible) {
+            if (!el) return;
+            if (!visible) { el.style.display = 'none'; return; }
+            el.style.left = cx + 'px';
+            el.style.top = cy + 'px';
+            el.style.display = 'block';
+        }
+
+        function hideHandles() { placeHandle(handleStart, 0, 0, false); placeHandle(handleEnd, 0, 0, false); }
+
+        // Recoloca las dos manijas en los extremos de la selección actual (o las oculta si la
+        // selección salió del viewport visible).
+        function positionHandles() {
+            if (!selActive || !term.hasSelection()) { hideHandles(); return; }
+            var pos = term.getSelectionPosition();
+            if (!pos) { hideHandles(); return; }
+            var rect = screenRect();
+            var cellW = rect.width / term.cols;
+            var cellH = rect.height / term.rows;
+            var vy = term.buffer.active.viewportY;
+            var sTop = (pos.start.y - vy) * cellH;
+            var eTop = (pos.end.y - vy) * cellH;
+            placeHandle(handleStart, rect.left + pos.start.x * cellW, rect.top + sTop,
+                sTop >= 0 && sTop <= rect.height);
+            placeHandle(handleEnd, rect.left + pos.end.x * cellW, rect.top + eTop + cellH,
+                (eTop + cellH) >= 0 && (eTop + cellH) <= rect.height + cellH);
         }
 
         function notifySelecting(on) {
@@ -202,22 +286,23 @@
             } catch (e) {}
         }
 
-        function enterSelection(x, y) {
-            selecting = true;
-            didDrag = false;
-            lastX = x; lastY = y;
+        function enterSelectionWord(cell) {
+            selActive = true;
+            pressCell = cell;
+            selectWordAt(cell);
+            positionHandles();
             notifySelecting(true);
-            fwdMouse('mousedown', x, y, 1, 1); // ancla la selección; el arrastre la extiende
         }
 
         function exitSelection() {
-            selecting = false;
-            didDrag = false;
+            selActive = false; dragMode = null; lpFired = false;
+            anchorCell = null; pressCell = null;
             try { term.clearSelection(); } catch (e) {}
+            hideHandles();
             notifySelecting(false);
         }
 
-        // Llamadas desde Kotlin: setSelectionMode(false)/clearSelectionMode() para cerrar la barra.
+        // Llamadas desde Kotlin para cerrar la selección.
         function setSelectionMode(on) { if (!on) exitSelection(); }
         function clearSelectionMode() { exitSelection(); }
 
@@ -238,62 +323,83 @@
             } catch (e) {}
         }
 
+        // Reposicionar manijas cuando xterm cambia la selección (p.ej. cada term.select del arrastre).
+        term.onSelectionChange(function() { if (selActive) positionHandles(); });
+
+        // Arrastre de una manija: ancla el extremo opuesto y reajusta el extremo arrastrado.
+        function bindHandle(el, which) {
+            if (!el) return;
+            el.addEventListener('touchstart', function(e) {
+                if (!selActive) return;
+                e.preventDefault(); e.stopPropagation();
+                var pos = term.getSelectionPosition();
+                if (!pos) return;
+                if (which === 'start') {
+                    anchorCell = { col: Math.max(0, pos.end.x - 1), row: pos.end.y };
+                    dragMode = 'start';
+                } else {
+                    anchorCell = { col: pos.start.x, row: pos.start.y };
+                    dragMode = 'end';
+                }
+            }, { passive: false });
+            el.addEventListener('touchmove', function(e) {
+                if (!dragMode || e.touches.length !== 1) return;
+                e.preventDefault(); e.stopPropagation();
+                var t = e.touches[0];
+                applySelection(anchorCell, cellFromPoint(t.clientX, t.clientY));
+            }, { passive: false });
+            el.addEventListener('touchend', function(e) {
+                if (!dragMode) return;
+                e.preventDefault(); e.stopPropagation();
+                dragMode = null;
+                positionHandles();
+            }, { passive: false });
+        }
+        bindHandle(handleStart, 'start');
+        bindHandle(handleEnd, 'end');
+
+        // Gestos sobre la terminal: pulsación larga → palabra; mantener+arrastrar → extender.
         (function() {
             var host = document.getElementById('terminal');
-            var MOVE_CANCEL = 12; // px de movimiento antes de la pulsación larga = scroll, no selección
+            var MOVE_CANCEL = 12; // px antes de la pulsación larga = scroll, no selección
 
             host.addEventListener('touchstart', function(e) {
                 if (e.touches.length !== 1) {
                     if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
                     return;
                 }
+                if (dragMode) return; // ya se está arrastrando una manija
                 var t = e.touches[0];
-                if (selecting) {
-                    // Ya en selección: un nuevo toque reancla el inicio y arrastra desde ahí.
-                    e.preventDefault();
-                    lpStartX = t.clientX; lpStartY = t.clientY; lastX = t.clientX; lastY = t.clientY;
-                    didDrag = false;
-                    fwdMouse('mousedown', lastX, lastY, 1, 1);
-                    return;
-                }
-                lpStartX = t.clientX; lpStartY = t.clientY;
+                downX = t.clientX; downY = t.clientY;
+                lpFired = false;
                 if (lpTimer) clearTimeout(lpTimer);
                 lpTimer = setTimeout(function() {
-                    lpTimer = null;
-                    enterSelection(lpStartX, lpStartY);
+                    lpTimer = null; lpFired = true;
+                    enterSelectionWord(cellFromPoint(downX, downY));
+                    dragMode = 'fresh';
                 }, 400);
             }, { passive: false });
 
             host.addEventListener('touchmove', function(e) {
                 if (e.touches.length !== 1) return;
                 var t = e.touches[0];
-                if (selecting) {
+                if (dragMode === 'fresh') {
                     e.preventDefault();
-                    didDrag = true;
-                    lastX = t.clientX; lastY = t.clientY;
-                    fwdMouse('mousemove', lastX, lastY, 1, 1);
+                    applySelection(pressCell, cellFromPoint(t.clientX, t.clientY));
                     return;
                 }
                 if (lpTimer) {
-                    var dx = t.clientX - lpStartX, dy = t.clientY - lpStartY;
-                    if (Math.hypot(dx, dy) > MOVE_CANCEL) { clearTimeout(lpTimer); lpTimer = null; }
+                    if (Math.hypot(t.clientX - downX, t.clientY - downY) > MOVE_CANCEL) {
+                        clearTimeout(lpTimer); lpTimer = null;
+                    }
                 }
             }, { passive: false });
 
             host.addEventListener('touchend', function(e) {
                 if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
-                if (!selecting) return;
-                e.preventDefault();
-                fwdMouse('mouseup', lastX, lastY, 0, 1);
-                // Pulsación larga sin arrastre → seleccionar la palabra bajo el dedo (doble clic).
-                if (!didDrag) {
-                    try {
-                        if (!(term.hasSelection && term.hasSelection())) {
-                            fwdMouse('mousedown', lpStartX, lpStartY, 1, 2);
-                            fwdMouse('mouseup', lpStartX, lpStartY, 0, 2);
-                        }
-                    } catch (err) {}
-                }
+                if (dragMode === 'fresh') { dragMode = null; positionHandles(); return; }
+                // Tap corto mientras hay selección → cerrar.
+                if (selActive && !lpFired) { exitSelection(); }
             }, { passive: false });
         })();
 
