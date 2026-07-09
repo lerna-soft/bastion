@@ -32,6 +32,23 @@ class TerminalBridge(private val webView: WebView) {
         _onResizeCallback = callback
     }
 
+    /**
+     * Notificación JS→Compose: la pulsación larga entró/salió de selección. Compose usa esto para
+     * mostrar/ocultar la barra de copiar (ya no hay botón de "modo selección" — lo dispara el gesto).
+     */
+    private var _onSelectionChange: ((active: Boolean) -> Unit)? = null
+
+    fun setOnSelectionChangeCallback(callback: (active: Boolean) -> Unit) {
+        _onSelectionChange = callback
+    }
+
+    /** Llamado desde JS al entrar/salir de selección por pulsación larga. */
+    @JavascriptInterface
+    fun onSelectionActive(active: Boolean) {
+        selectionMode = active
+        webView.post { _onSelectionChange?.invoke(active) }
+    }
+
     @JavascriptInterface
     fun onData(data: String) {
         _onData.trySend(data)

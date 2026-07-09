@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebChromeClient
@@ -39,7 +40,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Warning
@@ -209,6 +209,12 @@ fun TerminalTab(
         bridge.value?.setFontSize(fontSize)
     }
 
+    // La selección la dispara la pulsación larga en el WebView (no un botón): el bridge nos avisa
+    // cuando entra/sale de selección para mostrar/ocultar la barra de copiar.
+    LaunchedEffect(bridge.value) {
+        bridge.value?.setOnSelectionChangeCallback { active -> selectionMode = active }
+    }
+
     BastionTheme(colorMode = terminalColorMode, applyStatusBar = false) {
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -251,21 +257,12 @@ fun TerminalTab(
                         ClosedOverlay()
                     }
                     SessionState.SHELL_ACTIVE -> {
-                        Row(
+                        ThemeButton(
+                            onClick = { showThemeDialog = true },
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            SelectionToggleButton(
-                                active = selectionMode,
-                                onClick = {
-                                    selectionMode = !selectionMode
-                                    bridge.value?.setSelectionMode(selectionMode)
-                                }
-                            )
-                            ThemeButton(onClick = { showThemeDialog = true })
-                        }
+                                .padding(8.dp)
+                        )
                     }
                 }
             }
@@ -730,29 +727,6 @@ private fun CommandItem(
 }
 
 @Composable
-private fun SelectionToggleButton(active: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .background(
-                if (active) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f)
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Default.SelectAll,
-            contentDescription = "Select text",
-            tint = if (active) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(14.dp)
-        )
-    }
-}
-
-@Composable
 private fun SelectionActionBar(
     onCopy: () -> Unit,
     onCopyAll: () -> Unit,
@@ -767,7 +741,7 @@ private fun SelectionActionBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Drag to select",
+            text = "Drag handles to adjust",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 10.sp,
             fontFamily = FontFamily.Monospace,
@@ -823,14 +797,29 @@ private fun createWebView(
         isFocusable = true
         isFocusableInTouchMode = true
 
+        // El teclado se abre SOLO con un toque corto (tap). Una pulsación larga inicia la selección
+        // de texto (la maneja el JS) y NO debe abrir el teclado, ni tampoco un arrastre/scroll.
+        var downTime = 0L
+        var downX = 0f
+        var downY = 0f
         setOnTouchListener { v, event ->
-            // En modo selección NO abrimos el teclado: el arrastre debe seleccionar texto, no tipear.
-            val selecting = (v.tag as? TerminalBridge)?.selectionMode == true
-            if (!selecting) {
-                v.performClick()
-                v.requestFocus()
-                val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showSoftInput(v, InputMethodManager.SHOW_IMPLICIT)
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    downTime = event.eventTime
+                    downX = event.x
+                    downY = event.y
+                }
+                MotionEvent.ACTION_UP -> {
+                    val dt = event.eventTime - downTime
+                    val moved = Math.hypot((event.x - downX).toDouble(), (event.y - downY).toDouble())
+                    val selecting = (v.tag as? TerminalBridge)?.selectionMode == true
+                    if (!selecting && dt < 400 && moved < 24) {
+                        v.performClick()
+                        v.requestFocus()
+                        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                        imm.showSoftInput(v, InputMethodManager.SHOW_IMPLICIT)
+                    }
+                }
             }
             false
         }

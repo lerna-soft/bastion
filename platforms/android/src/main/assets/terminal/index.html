@@ -173,17 +173,53 @@
             return currentTheme;
         }
 
-        // --- Selección y copia (modo selección) ---
-        // xterm.js gestiona su propia selección con eventos de RATÓN; en una pantalla táctil un
-        // arrastre de un dedo se interpreta como scroll y nunca selecciona. En modo selección
-        // reenviamos los eventos táctiles como eventos de ratón sintéticos al elemento de la
-        // terminal, para que el SelectionService de xterm los procese y resalte el texto.
-        var selectionMode = false;
+        // --- Selección y copia por PULSACIÓN LARGA (como una terminal normal) ---
+        // xterm.js gestiona su propia selección con eventos de RATÓN; en táctil un arrastre de un
+        // dedo se interpreta como scroll y nunca selecciona. Aquí detectamos una pulsación larga
+        // (dedo quieto ~400 ms) para ENTRAR en selección; desde ahí el arrastre la extiende
+        // (eventos de ratón sintéticos → SelectionService de xterm) y al soltar mostramos la barra
+        // de copiar. Una pulsación larga sin arrastre selecciona la palabra bajo el dedo (doble
+        // clic sintético). No hace falta ningún botón de "modo selección".
+        var selecting = false;
+        var lpTimer = null;
+        var lpStartX = 0, lpStartY = 0, lastX = 0, lastY = 0, didDrag = false;
 
-        function setSelectionMode(on) {
-            selectionMode = !!on;
-            try { if (!selectionMode) term.clearSelection(); } catch (e) {}
+        function screenTarget() { return document.querySelector('.xterm-screen') || term.element; }
+
+        function fwdMouse(type, x, y, buttons, detail) {
+            var target = (type === 'mousedown') ? screenTarget() : document;
+            target.dispatchEvent(new MouseEvent(type, {
+                bubbles: true, cancelable: true, view: window,
+                clientX: x, clientY: y, button: 0, buttons: buttons || 0, detail: detail || 1
+            }));
         }
+
+        function notifySelecting(on) {
+            try {
+                if (window.BastionBridge && window.BastionBridge.onSelectionActive) {
+                    window.BastionBridge.onSelectionActive(on);
+                }
+            } catch (e) {}
+        }
+
+        function enterSelection(x, y) {
+            selecting = true;
+            didDrag = false;
+            lastX = x; lastY = y;
+            notifySelecting(true);
+            fwdMouse('mousedown', x, y, 1, 1); // ancla la selección; el arrastre la extiende
+        }
+
+        function exitSelection() {
+            selecting = false;
+            didDrag = false;
+            try { term.clearSelection(); } catch (e) {}
+            notifySelecting(false);
+        }
+
+        // Llamadas desde Kotlin: setSelectionMode(false)/clearSelectionMode() para cerrar la barra.
+        function setSelectionMode(on) { if (!on) exitSelection(); }
+        function clearSelectionMode() { exitSelection(); }
 
         function copySelection() {
             try {
@@ -199,37 +235,65 @@
                 term.selectAll();
                 var s = term.getSelection();
                 if (s && window.BastionBridge) window.BastionBridge.copyToClipboard(s);
-                term.clearSelection();
             } catch (e) {}
         }
 
         (function() {
-            var screenEl = document.querySelector('.xterm-screen') || term.element;
-            var lastX = 0, lastY = 0;
-            function fwd(type, x, y, buttons) {
-                var target = (type === 'mousedown') ? screenEl : document;
-                target.dispatchEvent(new MouseEvent(type, {
-                    bubbles: true, cancelable: true, view: window,
-                    clientX: x, clientY: y, button: 0, buttons: buttons
-                }));
-            }
             var host = document.getElementById('terminal');
+            var MOVE_CANCEL = 12; // px de movimiento antes de la pulsación larga = scroll, no selección
+
             host.addEventListener('touchstart', function(e) {
-                if (!selectionMode || e.touches.length !== 1) return;
-                e.preventDefault();
-                var t = e.touches[0]; lastX = t.clientX; lastY = t.clientY;
-                fwd('mousedown', lastX, lastY, 1);
+                if (e.touches.length !== 1) {
+                    if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+                    return;
+                }
+                var t = e.touches[0];
+                if (selecting) {
+                    // Ya en selección: un nuevo toque reancla el inicio y arrastra desde ahí.
+                    e.preventDefault();
+                    lpStartX = t.clientX; lpStartY = t.clientY; lastX = t.clientX; lastY = t.clientY;
+                    didDrag = false;
+                    fwdMouse('mousedown', lastX, lastY, 1, 1);
+                    return;
+                }
+                lpStartX = t.clientX; lpStartY = t.clientY;
+                if (lpTimer) clearTimeout(lpTimer);
+                lpTimer = setTimeout(function() {
+                    lpTimer = null;
+                    enterSelection(lpStartX, lpStartY);
+                }, 400);
             }, { passive: false });
+
             host.addEventListener('touchmove', function(e) {
-                if (!selectionMode || e.touches.length !== 1) return;
-                e.preventDefault();
-                var t = e.touches[0]; lastX = t.clientX; lastY = t.clientY;
-                fwd('mousemove', lastX, lastY, 1);
+                if (e.touches.length !== 1) return;
+                var t = e.touches[0];
+                if (selecting) {
+                    e.preventDefault();
+                    didDrag = true;
+                    lastX = t.clientX; lastY = t.clientY;
+                    fwdMouse('mousemove', lastX, lastY, 1, 1);
+                    return;
+                }
+                if (lpTimer) {
+                    var dx = t.clientX - lpStartX, dy = t.clientY - lpStartY;
+                    if (Math.hypot(dx, dy) > MOVE_CANCEL) { clearTimeout(lpTimer); lpTimer = null; }
+                }
             }, { passive: false });
+
             host.addEventListener('touchend', function(e) {
-                if (!selectionMode) return;
+                if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+                if (!selecting) return;
                 e.preventDefault();
-                fwd('mouseup', lastX, lastY, 0);
+                fwdMouse('mouseup', lastX, lastY, 0, 1);
+                // Pulsación larga sin arrastre → seleccionar la palabra bajo el dedo (doble clic).
+                if (!didDrag) {
+                    try {
+                        if (!(term.hasSelection && term.hasSelection())) {
+                            fwdMouse('mousedown', lpStartX, lpStartY, 1, 2);
+                            fwdMouse('mouseup', lpStartX, lpStartY, 0, 2);
+                        }
+                    } catch (err) {}
+                }
             }, { passive: false });
         })();
 
