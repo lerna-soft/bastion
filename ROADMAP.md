@@ -3,7 +3,7 @@
 > Ver `AGENTS.md` para el estado de continuidad completo (arquitectura, reglas, specs
 > HIM). Este archivo es un resumen de alto nivel.
 
-## Completed (Android, v1.1.27)
+## Completed (Android, v1.1.28)
 - [x] SSH connection (password + key auth)
 - [x] Terminal WebView with xterm.js — usa el ancho real disponible (PTY window-change, HIM-017)
 - [x] Terminal: modo selección + copiar texto (arrastre táctil → mouse sintético a xterm.js, v1.1.27);
@@ -21,6 +21,10 @@
 - [x] Auto-update system — distribución vía GitHub Releases (repo público `lerna-soft/bastion`,
       APK real como asset, chequeo contra `api.github.com`, HIM-018) + botón manual de
       chequeo en Settings → Updates (v1.1.27)
+- [x] Update notification no-bloqueante (v1.1.28): tarjeta descartable en vez de diálogo
+      forzado, sin auto-instalar — el usuario decide cuándo instalar. Version History
+      informativa en Settings (no permite rollback: Android bloquea downgrades a nivel
+      de sistema, imposible de saltar sin root)
 - [x] Build tipo `release` (no `debug`) — sin aviso de "app para desarrolladores"
 - [x] About screen
 - [x] UI no-funcional oculta/corregida (Settings Security/Notifications/API Keys, HIM-015)

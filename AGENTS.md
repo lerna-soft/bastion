@@ -6,7 +6,7 @@
 
 ## Project Overview
 Cliente SSH tipo Termius, multi-pestaña, sin shell local. **Android** es la plataforma
-estable y publicada (v1.1.27). Desde HIM-016 el proyecto se está expandiendo a
+estable y publicada (v1.1.28). Desde HIM-016 el proyecto se está expandiendo a
 **Windows/Linux/Mac** (Compose Desktop) y, a futuro, **iOS** (bloqueado técnicamente,
 ver ADR-D4 abajo). Desde HIM-018 el repo es **público** en `github.com/lerna-soft/bastion`
 y la distribución de releases es vía GitHub (ver sección "Distribución" abajo).
@@ -16,7 +16,7 @@ y la distribución de releases es vía GitHub (ver sección "Distribución" abaj
 ## Current State — 2026-07-09
 
 ### ✅ Android (`platforms/android/`) — ESTABLE, publicado
-- **Versión instalada/publicada:** v1.1.27 (versionCode 39) — **no tocar sin razón**, es
+- **Versión instalada/publicada:** v1.1.28 (versionCode 40) — **no tocar sin razón**, es
   la versión que el usuario tiene funcionando en su teléfono ahora mismo (confirmó en
   dispositivo real que el flujo de auto-update vía GitHub funcionó end-to-end).
 - Multi-pestaña real, sesiones sobreviven navegación interna y cambio de app (keepalive
@@ -28,6 +28,23 @@ y la distribución de releases es vía GitHub (ver sección "Distribución" abaj
   Android no marque la app como "para desarrolladores"), selección/copiar texto en la
   terminal (modo selección con reenvío táctil→mouse a xterm.js, desde v1.1.27), sección
   "Updates" en Settings con chequeo manual (v1.1.27).
+- **Update notification no-bloqueante (v1.1.28):** antes `MainActivity` mostraba
+  `AlertDialog(onDismissRequest = {})` para Available/Downloading/Ready — sin forma de
+  cerrarlo, y `downloadUpdate()` lanzaba el instalador automáticamente al terminar la
+  descarga sin que el usuario lo pidiera (la app quedaba efectivamente bloqueada hasta
+  actuar). Fix: los 3 estados ahora se muestran en una tarjeta flotante no-modal
+  (`UpdateBanner` en `MainActivity.kt`) con botón de cerrar (X) siempre visible — se puede
+  seguir usando la app debajo. `downloadUpdate()` ya no auto-instala, solo llega a `Ready`
+  y el usuario dispara la instalación con un botón explícito. Cerrar el banner de
+  Available/Ready persiste `AppSettings.skippedUpdateVersion` (Room migration 2→3) para
+  que esa versión no vuelva a interrumpir sola en cada `onResume` — el botón manual
+  "Check for Updates" en Settings ignora el skip a propósito (acción explícita del
+  usuario). Nueva sección **"Version History"** en Settings → Updates: lista los releases
+  de GitHub (versión/fecha/changelog), **solo informativa** — no ofrece instalar
+  versiones viejas porque Android bloquea a nivel de sistema instalar un versionCode
+  menor al ya instalado (protección anti-downgrade que ninguna app normal puede saltarse
+  sin permisos de sistema/root; se evaluó y se descartó pedirle al usuario ese flujo,
+  decisión explícita suya — ver `memoria/inconsistencias-pendientes.md` si se agrega ahí).
 - Ver tabla de specs HIM abajo para el detalle de cada fix.
 
 ### 🚧 Multiplataforma (HIM-016) — EN PROGRESO, es el trabajo activo
@@ -221,6 +238,7 @@ riesgo de dejarlas (Stitch, decisión del usuario).
 | HIM-017 | Terminal no usaba el ancho real disponible (PTY sin window-change) | completado | v1.1.25 |
 | HIM-018 | Distribución de releases vía GitHub (repo público, APK real, auto-update por GitHub API) | completado, verificado end-to-end en dispositivo | v1.1.25 |
 | — | Selección/copiar texto en terminal + sección Updates en Settings (sin spec formal, pedido directo) | completado | v1.1.27 |
+| — | Update notification no-bloqueante + Version History informativa (sin spec formal, pedido directo) | completado | v1.1.28 |
 
 ---
 
