@@ -16,8 +16,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -28,8 +35,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -88,125 +97,165 @@ class MainActivity : ComponentActivity() {
             }
 
             BastionTheme(colorMode = colorMode) {
-                Surface(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.systemBars)
-                ) {
-                    val navController = rememberNavController()
-                    BastionNavGraph(
-                        navController = navController,
-                        app = app,
-                        repository = app.repository,
-                        colorMode = colorMode,
-                        onColorModeChange = {
-                            colorMode = it
-                            scope.launch {
-                                val s = app.repository.getSettings()
-                                app.repository.saveSettings(s.copy(colorMode = it.name))
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.systemBars)
+                    ) {
+                        val navController = rememberNavController()
+                        BastionNavGraph(
+                            navController = navController,
+                            app = app,
+                            repository = app.repository,
+                            colorMode = colorMode,
+                            onColorModeChange = {
+                                colorMode = it
+                                scope.launch {
+                                    val s = app.repository.getSettings()
+                                    app.repository.saveSettings(s.copy(colorMode = it.name))
+                                }
+                            }
+                        )
+                    }
+
+                    // Notificación de actualización — NUNCA un diálogo bloqueante. Es una tarjeta
+                    // flotante y descartable: el usuario puede seguir usando la app debajo, y decide
+                    // a discreción si/cuándo instalar. El botón "Dismiss"/"Later" solo oculta el
+                    // aviso (marca la versión como descartada, ver BastionApp.dismissUpdate), nunca
+                    // lanza el instalador por su cuenta.
+                    val updateState by app.updateState.collectAsState()
+
+                    when (val state = updateState) {
+                        is UpdateState.Available -> {
+                            UpdateBanner(
+                                title = "Update available",
+                                onClose = { app.dismissUpdate(state.info.versionName) }
+                            ) {
+                                Text(
+                                    "Version ${state.info.versionName} is available (current: v${BuildConfig.VERSION_NAME}).",
+                                    fontSize = 13.sp,
+                                    color = StitchOnSurfaceVariant
+                                )
+                                if (state.info.changelog.isNotBlank()) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        state.info.changelog.take(200),
+                                        fontSize = 12.sp,
+                                        color = StitchOnSurfaceVariant,
+                                        maxLines = 3,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(Modifier.height(10.dp))
+                                TextButton(onClick = { app.downloadUpdate(state.info) }) {
+                                    Text("Download", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
-                    )
-                }
-
-                val updateState by app.updateState.collectAsState()
-
-                when (val state = updateState) {
-                    is UpdateState.Available -> {
-                        AlertDialog(
-                            onDismissRequest = {},
-                            title = { Text("Update available") },
-                            text = {
-                                Text(
-                                    "Version ${state.info.versionName} is available.\n\n" +
-                                    "Changes: ${state.info.changelog}\n\n" +
-                                    "Current: v${BuildConfig.VERSION_NAME}"
-                                )
-                            },
-                            confirmButton = {
-                                TextButton(onClick = { app.downloadUpdate(state.info) }) {
-                                    Text("Update now", fontWeight = FontWeight.Bold)
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { app.checkForUpdate() }) {
-                                    Text("Skip")
-                                }
-                            }
-                        )
-                    }
-                    is UpdateState.Downloading -> {
-                        val progress = state.progress
-                        val totalMb = state.info.fileSize / (1024f * 1024f)
-                        val downloadedMb = (state.info.fileSize * progress / 100f) / (1024f * 1024f)
-                        AlertDialog(
-                            onDismissRequest = {},
-                            title = {
-                                Text(
-                                    text = "Downloading update...",
-                                    fontWeight = FontWeight.Bold
-                                )
-                            },
-                            text = {
-                                Column {
+                        is UpdateState.Downloading -> {
+                            val progress = state.progress
+                            val totalMb = state.info.fileSize / (1024f * 1024f)
+                            val downloadedMb = (state.info.fileSize * progress / 100f) / (1024f * 1024f)
+                            UpdateBanner(
+                                title = "Downloading v${state.info.versionName}…",
+                                onClose = { app.dismissUpdate(state.info.versionName) }
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .background(StitchSurfaceContainerHighest, RoundedCornerShape(3.dp))
+                                ) {
                                     Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .background(StitchSurfaceContainerHighest, RoundedCornerShape(3.dp))
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth(progress / 100f)
-                                                .fillMaxHeight()
-                                                .background(StitchPrimaryContainer, RoundedCornerShape(3.dp))
-                                        )
-                                    }
-                                    Spacer(Modifier.height(8.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text(
-                                            // progress es Int: %.0f con Int lanza IllegalFormatConversionException
-                                            // en el main thread y tumbaba la app al abrir este diálogo (HIM-012).
-                                            text = "$progress%",
-                                            color = StitchPrimaryContainer,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "${String.format("%.1f", downloadedMb)} / ${String.format("%.1f", totalMb)} MB",
-                                            color = StitchOnSurfaceVariant,
-                                            fontSize = 12.sp
-                                        )
-                                    }
+                                            .fillMaxWidth(progress / 100f)
+                                            .fillMaxHeight()
+                                            .background(StitchPrimaryContainer, RoundedCornerShape(3.dp))
+                                    )
                                 }
-                            },
-                            confirmButton = {}
-                        )
-                    }
-                    is UpdateState.Ready -> {
-                        AlertDialog(
-                            onDismissRequest = {},
-                            title = { Text("Update ready") },
-                            text = { Text("The update has been downloaded. Install it when ready.") },
-                            confirmButton = {
+                                Spacer(Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        // progress es Int: %.0f con Int lanza IllegalFormatConversionException
+                                        // en el main thread y tumbaba la app al abrir este diálogo (HIM-012).
+                                        text = "$progress%",
+                                        color = StitchPrimaryContainer,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "${String.format("%.1f", downloadedMb)} / ${String.format("%.1f", totalMb)} MB",
+                                        color = StitchOnSurfaceVariant,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                        is UpdateState.Ready -> {
+                            UpdateBanner(
+                                title = "Update ready to install",
+                                onClose = { app.dismissUpdate(state.info.versionName) }
+                            ) {
+                                Text(
+                                    "v${state.info.versionName} downloaded. Install whenever you're ready.",
+                                    fontSize = 13.sp,
+                                    color = StitchOnSurfaceVariant
+                                )
+                                Spacer(Modifier.height(10.dp))
                                 TextButton(onClick = {
                                     UpdateChecker.installApk(this@MainActivity, state.file)
                                 }) {
-                                    Text("Install")
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { app.checkForUpdate() }) {
-                                    Text("Later")
+                                    Text("Install now", fontWeight = FontWeight.Bold)
                                 }
                             }
-                        )
+                        }
+                        else -> {}
                     }
-                    else -> {}
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Tarjeta flotante no-modal para avisos de actualización. A diferencia de un AlertDialog, no
+ * bloquea el resto de la pantalla ni obliga a elegir una opción — solo un botón de cerrar (X)
+ * arriba a la derecha, siempre visible, que descarta el aviso sin instalar nada.
+ */
+@androidx.compose.runtime.Composable
+private fun UpdateBanner(
+    title: String,
+    onClose: () -> Unit,
+    content: @androidx.compose.runtime.Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .padding(12.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = StitchSurfaceContainerHighest),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    IconButton(onClick = onClose, modifier = Modifier.height(24.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Dismiss", modifier = Modifier.height(18.dp))
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                content()
             }
         }
     }

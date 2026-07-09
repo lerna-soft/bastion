@@ -617,7 +617,7 @@ private fun UpdatesSection() {
                         Text(state.info.changelog.take(400),
                             color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
-                    UpdateActionButton("Download & Install", primary = true) {
+                    UpdateActionButton("Download update", primary = true) {
                         app?.downloadUpdate(state.info)
                     }
                 }
@@ -635,11 +635,13 @@ private fun UpdatesSection() {
                 }
             }
             is UpdateState.Ready -> {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.primary)
-                    Text("Launching installer…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                val context2 = LocalContext.current
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("v${state.info.versionName} downloaded — install whenever you're ready.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                    UpdateActionButton("Install now", primary = true) {
+                        com.bastion.app.update.UpdateChecker.installApk(context2, state.file)
+                    }
                 }
             }
             is UpdateState.Error -> {
@@ -662,6 +664,85 @@ private fun UpdatesSection() {
                     UpdateActionButton("Check for Updates", primary = true) {
                         checkedOnce = true
                         app?.checkForUpdate()
+                    }
+                }
+            }
+        }
+    }
+
+    Spacer(Modifier.height(16.dp))
+    VersionHistorySection()
+}
+
+/**
+ * Historial de releases de GitHub — solo informativo (versión, fecha, changelog). No ofrece
+ * instalar versiones viejas: Android bloquea instalar un APK con versionCode menor al que ya
+ * está instalado (protección del sistema contra downgrades, no algo saltable desde una app
+ * normal sin permisos de sistema/root). El usuario decidió explícitamente esta opción (ver
+ * memoria del proyecto) sobre implementar un flujo de desinstalar+reinstalar con backup.
+ */
+@Composable
+private fun VersionHistorySection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var expanded by remember { mutableStateOf(false) }
+    var releases by remember { mutableStateOf<List<com.bastion.app.update.ReleaseInfo>?>(null) }
+    var loading by remember { mutableStateOf(false) }
+
+    SectionCard(title = "Version History", icon = Icons.Default.SystemUpdate) {
+        if (!expanded) {
+            UpdateActionButton("View version history") {
+                expanded = true
+                if (releases == null) {
+                    loading = true
+                    scope.launch {
+                        releases = com.bastion.app.update.UpdateChecker.listReleases(BuildConfig.VERSION_NAME)
+                        loading = false
+                    }
+                }
+            }
+        } else {
+            when {
+                loading -> {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary)
+                        Text("Loading history…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                    }
+                }
+                releases.isNullOrEmpty() -> {
+                    Text("Couldn't load version history.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                }
+                else -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        releases!!.forEach { release ->
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("v${release.versionName}", fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                                        color = if (release.isCurrent) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface)
+                                    if (release.isCurrent) {
+                                        Text("(current)", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                                    }
+                                    if (release.publishedAt.isNotBlank()) {
+                                        Text(release.publishedAt.take(10), fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                }
+                                if (release.changelog.isNotBlank()) {
+                                    Text(release.changelog.take(300), fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                        }
+                        Text(
+                            "Installing an older version isn't supported — Android blocks downgrading " +
+                                "an app over one already installed. This list is just to see what changed.",
+                            fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

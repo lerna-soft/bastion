@@ -129,7 +129,7 @@ class BastionApp : Application() {
         secretsStore = SecretsStore(this)
         repository = VaultRepository(database, secretsStore)
 
-        checkForUpdate()
+        checkForUpdate(respectSkip = true)
     }
 
     /**
@@ -230,26 +230,49 @@ class BastionApp : Application() {
      */
     fun checkForUpdateIfIdle() {
         when (_updateState.value) {
-            is UpdateState.Idle, is UpdateState.Error -> checkForUpdate()
+            is UpdateState.Idle, is UpdateState.Error -> checkForUpdate(respectSkip = true)
             else -> {}
         }
     }
 
-    fun checkForUpdate() {
+    /**
+     * @param respectSkip si true (chequeo automático en background), una versión que el usuario ya
+     * descartó con "Dismiss"/"Later" no vuelve a mostrarse como Available — solo queda registrada
+     * en logs. El botón manual "Check for Updates" en Settings llama con respectSkip=false porque
+     * es una acción explícita del usuario: siempre debe mostrar lo que haya, aunque ya la haya
+     * descartado antes.
+     */
+    fun checkForUpdate(respectSkip: Boolean = false) {
         _updateState.value = UpdateState.Checking
         appScope.launch {
             try {
                 val info = UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME)
-                if (info != null) {
-                    _updateState.value = UpdateState.Available(info)
-                    RemoteLogger.i("BastionApp", "update available: v${info.versionName}")
-                } else {
+                if (info == null) {
                     _updateState.value = UpdateState.Idle
                     RemoteLogger.i("BastionApp", "no update available")
+                    return@launch
                 }
+                val skipped = if (respectSkip) repository.getSettings().skippedUpdateVersion else ""
+                if (info.versionName == skipped) {
+                    _updateState.value = UpdateState.Idle
+                    RemoteLogger.i("BastionApp", "update v${info.versionName} disponible pero descartada por el usuario, no se notifica de nuevo")
+                    return@launch
+                }
+                _updateState.value = UpdateState.Available(info)
+                RemoteLogger.i("BastionApp", "update available: v${info.versionName}")
             } catch (e: Exception) {
                 _updateState.value = UpdateState.Error(e.message ?: "unknown")
             }
+        }
+    }
+
+    /** El usuario tocó "Dismiss"/"Later": no instala nada, solo evita que la app le vuelva a
+     * notificar automáticamente la misma versión (sí la puede pedir de nuevo desde Settings). */
+    fun dismissUpdate(versionName: String) {
+        _updateState.value = UpdateState.Idle
+        appScope.launch {
+            val settings = repository.getSettings()
+            repository.saveSettings(settings.copy(skippedUpdateVersion = versionName))
         }
     }
 
@@ -261,8 +284,9 @@ class BastionApp : Application() {
                     _updateState.value = UpdateState.Downloading(pct, info)
                 }
                 if (file != null) {
+                    // La descarga termina en Ready — el usuario decide cuándo instalar (botón
+                    // explícito), nunca se lanza el instalador automáticamente.
                     _updateState.value = UpdateState.Ready(file, info)
-                    UpdateChecker.installApk(this@BastionApp, file)
                 } else {
                     _updateState.value = UpdateState.Error("download failed")
                 }

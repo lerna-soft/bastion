@@ -15,5 +15,9 @@ data class AppSettings(
     val sessionTimeout: String = "30 Minutes",
     val webhookUrl: String = "",
     val emailAlerts: Boolean = false,
-    val colorMode: String = "DARK"
+    val colorMode: String = "DARK",
+    // Versión que el usuario descartó explícitamente (botón "Dismiss"/"Later") — evita que la
+    // misma versión vuelva a aparecer como banner en cada onResume. checkForUpdate() manual desde
+    // Settings ignora este campo a propósito (acción explícita del usuario, siempre debe mostrar).
+    val skippedUpdateVersion: String = ""
 )

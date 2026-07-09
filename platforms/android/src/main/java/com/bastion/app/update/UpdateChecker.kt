@@ -23,6 +23,16 @@ data class UpdateInfo(
     val changelog: String
 )
 
+/** Una entrada del historial de releases — informativa (ver Settings > Updates > Version history),
+ * no ofrece instalar versiones viejas: Android bloquea instalar un versionCode menor al ya
+ * instalado (protección anti-downgrade del sistema, no algo que una app pueda saltarse). */
+data class ReleaseInfo(
+    val versionName: String,
+    val publishedAt: String,
+    val changelog: String,
+    val isCurrent: Boolean
+)
+
 object UpdateChecker {
     private const val TAG = "UpdateChecker"
 
@@ -112,6 +122,45 @@ object UpdateChecker {
         } catch (e: Exception) {
             RemoteLogger.e(TAG, "check failed: ${e.message}", e)
             null
+        }
+    }
+
+    /** Parsea `GET /repos/{repo}/releases` (lista, no solo la última). Pura y testeable. */
+    fun parseGithubReleaseList(response: String, localVersion: String): List<ReleaseInfo> {
+        val arr = org.json.JSONArray(response)
+        val out = mutableListOf<ReleaseInfo>()
+        for (i in 0 until arr.length()) {
+            val json = arr.getJSONObject(i)
+            val tag = json.optString("tag_name", "")
+            if (tag.isBlank()) continue
+            val name = tag.removePrefix("v")
+            out.add(
+                ReleaseInfo(
+                    versionName = name,
+                    publishedAt = json.optString("published_at", ""),
+                    changelog = json.optString("body", ""),
+                    isCurrent = name == localVersion
+                )
+            )
+        }
+        return out
+    }
+
+    /** Historial de releases publicados en GitHub, más reciente primero — solo informativo. */
+    suspend fun listReleases(localVersion: String): List<ReleaseInfo> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL("https://api.github.com/repos/$GITHUB_REPO/releases")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Accept", "application/vnd.github+json")
+            val response = conn.inputStream.bufferedReader().readText()
+            conn.disconnect()
+            parseGithubReleaseList(response, localVersion)
+        } catch (e: Exception) {
+            RemoteLogger.e(TAG, "listReleases failed: ${e.message}", e)
+            emptyList()
         }
     }
 
