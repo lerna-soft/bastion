@@ -1,26 +1,33 @@
 # BASTION — Cliente SSH multiplataforma (Android + Desktop + iOS futuro)
 
-<!-- CURRENT_DATE: 2026-07-08 -->
+<!-- CURRENT_DATE: 2026-07-09 -->
 <!-- PROJECT_DIR: /home/lerna/proyectos/bastion/ (repo git independiente) -->
 <!-- SCOPE: Documento de continuidad — léelo primero en cualquier servidor tras `git pull` -->
 
 ## Project Overview
 Cliente SSH tipo Termius, multi-pestaña, sin shell local. **Android** es la plataforma
-estable y publicada (v1.1.23). Desde HIM-016 el proyecto se está expandiendo a
+estable y publicada (v1.1.27). Desde HIM-016 el proyecto se está expandiendo a
 **Windows/Linux/Mac** (Compose Desktop) y, a futuro, **iOS** (bloqueado técnicamente,
-ver ADR-D4 abajo).
+ver ADR-D4 abajo). Desde HIM-018 el repo es **público** en `github.com/lerna-soft/bastion`
+y la distribución de releases es vía GitHub (ver sección "Distribución" abajo).
 
 ---
 
-## Current State — 2026-07-08
+## Current State — 2026-07-09
 
 ### ✅ Android (`platforms/android/`) — ESTABLE, publicado
-- **Versión instalada/publicada:** v1.1.23 (versionCode 35) — **no tocar sin razón**, es
-  la versión que el usuario tiene funcionando en su teléfono ahora mismo.
+- **Versión instalada/publicada:** v1.1.27 (versionCode 39) — **no tocar sin razón**, es
+  la versión que el usuario tiene funcionando en su teléfono ahora mismo (confirmó en
+  dispositivo real que el flujo de auto-update vía GitHub funcionó end-to-end).
 - Multi-pestaña real, sesiones sobreviven navegación interna y cambio de app (keepalive
   SSH + foreground service + exención de batería), captura de crashes (Java + nativo/OOM/ANR
-  vía `ApplicationExitInfo`), pantalla de Logs in-app, auto-update funcional, build tipo
-  `release` (no `debug`, para que Android no marque la app como "para desarrolladores").
+  vía `ApplicationExitInfo`, con envío inline desde v1.1.26 — el envío async anterior se
+  perdía porque el proceso moría antes de que corriera), pantalla de Logs in-app,
+  auto-update funcional (chequea `api.github.com/repos/lerna-soft/bastion/releases/latest`
+  desde HIM-018, ya no un servidor local), build tipo `release` (no `debug`, para que
+  Android no marque la app como "para desarrolladores"), selección/copiar texto en la
+  terminal (modo selección con reenvío táctil→mouse a xterm.js, desde v1.1.27), sección
+  "Updates" en Settings con chequeo manual (v1.1.27).
 - Ver tabla de specs HIM abajo para el detalle de cada fix.
 
 ### 🚧 Multiplataforma (HIM-016) — EN PROGRESO, es el trabajo activo
@@ -60,16 +67,33 @@ con ADRs en `HIM-016.spec.md`):
       `:core`; `:app` sigue viendo el mismo comportamiento de logging (instala un sink
       que reenvía a `RemoteLogger`, cero regresión).
 - [x] **Regresión Android verificada:** `:platforms:android:testReleaseUnitTest` +
-      `:platforms:android:assembleRelease` compilan y pasan OK (build local, NO se
-      publicó — v1.1.23 sigue siendo la versión distribuida).
-- [ ] **PENDIENTE — siguiente paso:** crear `platforms/desktop/` (módulo Compose Desktop):
+      `:platforms:android:assembleRelease` compilan y pasan OK — la reestructura se
+      publicó sin regresión (v1.1.24 en adelante ya corren sobre `core/`+`platforms/android/`).
+- [x] **HIM-017** (terminal no usaba el ancho real disponible): `SshSession.resize()` solo
+      llamaba `channel.setPtyColumns()/setPtyLines()` — esos son setters de *pre-apertura*,
+      nunca notifican a un canal ya abierto. Fix: agregar `channel.sendWindowChange(cols, rows)`.
+      Completado y publicado en v1.1.25.
+- [x] **HIM-018** (distribución de releases vía GitHub): repo pasó a público, transferido
+      de `lerna-admin` a **`lerna-soft`** (organización correcta), `release.sh` sube el
+      APK como asset real del release (`bastion-android-vX.Y.Z.apk`), `docs/index.html`
+      (GitHub Pages en `https://lerna-soft.github.io/bastion/`) es el índice de descargas
+      por plataforma, `UpdateChecker.kt` chequea `api.github.com/.../releases/latest` en
+      vez del servidor local. Password del keystore rotada (preservando la misma firma/
+      fingerprint SHA-256, así que updates a instalaciones viejas siguen siendo válidos) y
+      API key de Stitch sacada del repo — ambas ahora solo en `~/.bastion-secrets.env`
+      (ver sección "Secretos"). Completado, publicado en v1.1.25, **verificado end-to-end**
+      en dispositivo real (descarga + instalación exitosa). RHD-BST-003 quedó obsoleta
+      (ver sección de reglas abajo).
+- [ ] **PENDIENTE — siguiente paso de HIM-016:** crear `platforms/desktop/` (módulo Compose
+  Desktop). Nada de esto se ha empezado:
   - Pantalla mínima de conexión (host/puerto/usuario/password, **sin persistencia** en
-    esta primera iteración — vault/keychain quedan para HIM-017).
+    esta primera iteración — vault/keychain quedan para una spec posterior).
   - Terminal JCEF + xterm.js reusado.
   - Conexión SSH real end-to-end usando `:core` (el mismo `SshSession` que Android).
   - Empaquetado: tarea Compose Desktop `nativeDistributions` → `.deb`/AppImage.
-- [ ] HIM-018 (spec aparte, no creada aún): CI GitHub Actions `windows-latest` para
-      generar el instalador de Windows.
+- [ ] CI GitHub Actions `windows-latest` para generar el instalador de Windows — todavía
+      sin spec propia (el número HIM-018 ya se usó para distribución GitHub, no para esto;
+      asignar el siguiente número disponible cuando se aborde).
 - [ ] iOS: bloqueado — Apache MINA SSHD es JVM puro, **no corre en Kotlin/Native**. El
       día que se aborde, la capa SSH necesita una librería Swift nativa vía interop
       (algo tipo Citadel/NIOSSH), detrás de `expect`/`actual` en `:core` ya formalizado
@@ -118,12 +142,18 @@ riesgo de dejarlas (Stitch, decisión del usuario).
 - **RHD-BST-002:** pipeline de release completo = `./release.sh [patch|minor|major]`.
   Pasos: lee versión de `platforms/android/build.gradle.kts` → bump semver → commit →
   rebuild imagen Docker `bastion-builder` → `./gradlew assembleRelease` → copia APK a
-  `~/apk-share/` → tag git + push → `gh release create` (solo notas, sin subir APK) →
-  actualiza `~/apk-share/latest.json` → reinicia `serve.py` en :8765.
-- **RHD-BST-003:** el APK se descarga SOLO desde `192.168.0.100:8765`. GitHub releases
-  son solo para tracking de versión, sin binario (repo privado).
+  `~/apk-share/` → tag git + push → `gh release create` **con el APK adjunto como asset
+  real** (`bastion-android-vX.Y.Z.apk`, desde HIM-018) → actualiza `~/apk-share/latest.json`
+  → reinicia `serve.py` en :8765.
+- **RHD-BST-003** (OBSOLETA desde HIM-018, 2026-07-08 — se deja el texto original tachado
+  por trazabilidad): ~~el APK se descarga SOLO desde `192.168.0.100:8765`. GitHub releases
+  son solo para tracking de versión, sin binario (repo privado).~~ Ahora: el repo
+  `lerna-soft/bastion` es **público**, GitHub Releases trae el APK real adjunto, y es la
+  fuente que consulta `UpdateChecker.kt` (`api.github.com/.../releases/latest`). El
+  servidor local `192.168.0.100:8765` sigue funcionando como espejo, no como única fuente.
 - **RHD-BST-004:** `versionCode` = auto-increment; `versionName` = semver.
-- **RHD-BST-005:** la app valida actualizaciones vía `http://192.168.0.100:8765/update`.
+- **RHD-BST-005:** la app valida actualizaciones contra la API de GitHub (desde HIM-018;
+  antes era `http://192.168.0.100:8765/update`, que sigue vivo como espejo).
 - **RHD-BST-007:** prohibido texto hardcodeado en UI — usar `BuildConfig` o estado
   dinámico.
 - **RHD-BST-008:** botones "Save"/"Connect" en `HostEditScreen` deben tener lógica
@@ -187,7 +217,10 @@ riesgo de dejarlas (Stitch, decisión del usuario).
 | HIM-013 | Pestañas sobreviven navegación interna (hoisted a BastionApp) | completado | v1.1.19 |
 | HIM-014 | Chequeo de update se repite en `onResume` | completado | v1.1.22 |
 | HIM-015 | Ocultar/corregir funcionalidades no conectadas (Settings, header) | completado | v1.1.23 |
-| HIM-016 | **Multiplataforma — core extraction + desktop skeleton** | 🚧 en-progreso | — (no publicado, ver arriba) |
+| HIM-016 | **Multiplataforma — core extraction + desktop skeleton** | 🚧 en-progreso (core extraído y publicado; falta `platforms/desktop/`) | v1.1.24+ (extracción de `:core`) |
+| HIM-017 | Terminal no usaba el ancho real disponible (PTY sin window-change) | completado | v1.1.25 |
+| HIM-018 | Distribución de releases vía GitHub (repo público, APK real, auto-update por GitHub API) | completado, verificado end-to-end en dispositivo | v1.1.25 |
+| — | Selección/copiar texto en terminal + sección Updates en Settings (sin spec formal, pedido directo) | completado | v1.1.27 |
 
 ---
 
@@ -308,15 +341,22 @@ flowchart LR
 
 ## Cómo retomar el trabajo en otro servidor
 
-1. `git clone`/`git pull` este repo.
+1. `git clone`/`git pull` este repo — ahora es **`github.com/lerna-soft/bastion`**
+   (transferido de `lerna-admin` en HIM-018; si tienes un remote apuntando a
+   `lerna-admin/bastion` corré `git remote set-url origin https://github.com/lerna-soft/bastion.git`).
 2. Leer este `AGENTS.md` completo (ya lo estás haciendo).
-3. Revisar `HIM-016.spec.md` para el detalle completo de las decisiones de
+3. Recrear `~/.bastion-secrets.env` (fuera del repo, chmod 600) con
+   `BASTION_KEYSTORE_PASSWORD` y `STITCH_API_KEY` reales — pedírselos al usuario, este
+   documento nunca los contiene. Sin esto no compila `release`/`build-apk.sh`.
+4. HIM-017 y HIM-018 ya están **completados y publicados** (v1.1.25, verificado
+   end-to-end en dispositivo real) — no hace falta retomarlos.
+5. Revisar `HIM-016.spec.md` para el detalle completo de las decisiones de
    arquitectura multiplataforma y los criterios de aceptación pendientes.
-4. El siguiente paso concreto es: **crear `platforms/desktop/`** (módulo Compose
+6. El siguiente paso concreto es: **crear `platforms/desktop/`** (módulo Compose
    Desktop) siguiendo el plan de implementación de `HIM-016.spec.md` sección "Plan de
-   implementación", pasos 4-7 (los pasos 1-3 ya están hechos).
-5. Prerrequisitos de build Android (sin cambios): JDK17 en
+   implementación", pasos 4-7 (los pasos 1-3 ya están hechos). Esto sigue sin empezar.
+7. Prerrequisitos de build Android (sin cambios): JDK17 en
    `~/dev-tools/jdk-17.0.19+10`, Android SDK en `~/android-build-env/android-sdk`,
    Docker con imagen `bastion-builder` construida (`docker build -t bastion-builder .`).
-6. Prerrequisitos nuevos para Desktop (a instalar en el servidor que se use): JDK17
+8. Prerrequisitos nuevos para Desktop (a instalar en el servidor que se use): JDK17
    (mismo), y si no hay entorno gráfico, `Xvfb` para smoke-tests de arranque.

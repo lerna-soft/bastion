@@ -1,13 +1,29 @@
 ---
 name: estado-actual-roadmap
-description: Estado real de bastion (v1.1.9) y roadmap, corrige el PROYECTO.md desactualizado
+description: Estado real de bastion (v1.1.27) y roadmap, corrige el PROYECTO.md desactualizado
 metadata:
   type: project
 ---
 
-Versión real en código: `versionCode = 21`, `versionName = "1.1.9"` (`app/build.gradle.kts`), commit `01a06c4` "v1.1.9 — HIM-006: tema app/terminal separados, tema por pestaña, StatsCollector oculto".
+Versión real en código: `versionCode = 39`, `versionName = "1.1.27"` (`platforms/android/build.gradle.kts`,
+desde HIM-016 ya no es `app/build.gradle.kts`), release publicado en `lerna-soft/bastion` 2026-07-09.
 
-Historial: v1.1.1(13) → v1.1.2(14) → v1.1.3(15) → v1.1.4(16, HIM-002 MVP funcional: DB v2, SettingsScreen/SSHKeysScreen reales) → v1.1.5(17) → v1.1.6(18) → v1.1.7(HIM-004, rediseño Stitch verde obsidiana) → v1.1.8(HIM-005: Neutral Dark default, OLED, stats reales, fix status bar) → v1.1.9(HIM-006, actual).
+Historial reciente (desde v1.1.9, ver commits para detalle completo v1.1.1-1.1.9):
+v1.1.9(HIM-006) → ... → v1.1.16(HIM-013) → v1.1.22(HIM-014/015) → v1.1.23(HIM-016 arranca:
+reestructura por plataforma `core/`+`platforms/android/`+`platforms/desktop/` pendiente) →
+v1.1.24(fix nombre APK tras HIM-016, `android-release.apk`) → v1.1.25(HIM-017: terminal usa
+ancho real vía `channel.sendWindowChange()`; HIM-018: distribución vía GitHub — repo público,
+transferido de `lerna-admin` a `lerna-soft`, password de keystore rotada preservando la misma
+firma, releases con APK real adjunto, `UpdateChecker` consulta GitHub API en vez del servidor
+local — ver [[reglas-rhd-bst]] RHD-BST-003 obsoleta) → v1.1.26(fix: `RemoteLogger.crash()`
+perdía el stack trace por enqueue async que nunca corría antes de que el proceso muriera; ahora
+envío inline) → **v1.1.27** (2026-07-09, actual): selección/copiar texto en la terminal — xterm.js
+solo selecciona con eventos de RATÓN, así que un toggle "modo selección" reenvía los touch events
+como mouse events sintéticos al WebView y agrega una barra Copiar/Todo/Cerrar con puente al
+portapapeles Android; se **retiraron** los botones Esc/Tab/Ctrl/Alt/flechas (pedido explícito del
+usuario, prioriza selección sobre teclas especiales); nueva sección "Updates" en Settings con
+botón manual de chequeo (reusa `BastionApp.updateState/checkForUpdate/downloadUpdate`). Verificado
+en dispositivo real por el usuario: detectó y descargó la actualización vía GitHub sin problema.
 
 Completado (ROADMAP.md): conexión SSH password+key, terminal WebView xterm.js, vault cifrado, multi-tab, pinch zoom, 6 temas, remote logging, crash detection/reporting, auto-update, About screen.
 

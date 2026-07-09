@@ -8,8 +8,8 @@ metadata:
 Reglas vinculantes del proyecto bastion (definidas en `/home/lerna/AGENTS.md` §BASTION y repetidas en `HIM-002.spec.md`):
 
 - **RHD-BST-001 / RHD-BST-006** (duplicadas, ver [[inconsistencias-pendientes]]): cada build/APK nuevo = nueva versión. Nunca compilar sin bump de `versionCode`+`versionName`.
-- **RHD-BST-002**: pipeline de release completo = `./release.sh [patch|minor|major]` (7 pasos, ver [[flujo-release-build]]).
-- **RHD-BST-003**: el APK se descarga SOLO desde `192.168.0.100:8765`. GitHub releases son solo tracking de versión, sin binario (repo privado).
+- **RHD-BST-002**: pipeline de release completo = `./release.sh [patch|minor|major]` (ver [[flujo-release-build]]).
+- **RHD-BST-003** (OBSOLETA desde HIM-018, 2026-07-08 — ver [[datos-operativos]]): decía "el APK se descarga SOLO desde 192.168.0.100:8765, GitHub releases son solo tracking sin binario, repo privado". Ya no es cierto: el repo `lerna-soft/bastion` es **público**, `release.sh` sube el APK como asset real del release (`bastion-android-vX.Y.Z.apk`), y `UpdateChecker.kt` en la app consulta directamente `api.github.com/repos/lerna-soft/bastion/releases/latest` (GitHub es ahora la fuente autoritativa de updates, no el servidor local). El servidor local 8765 sigue vivo como espejo/fallback pero ya no es la única fuente.
 - **RHD-BST-004**: `versionCode` = auto-increment; `versionName` = semver.
 - **RHD-BST-005**: la app valida actualizaciones vía `http://192.168.0.100:8765/update`.
 - **RHD-BST-007**: prohibido texto hardcodeado en UI — usar `BuildConfig` o estado dinámico.
