@@ -204,6 +204,10 @@
         var lpTimer = null;
         var lpFired = false;
         var downX = 0, downY = 0;
+        var activeAnchor = null;    // extremo fijo del arrastre en curso (manija o "fresh")
+        var dragTouchX = 0, dragTouchY = 0;
+        var autoScrollTimer = null; // auto-scroll al arrastrar cerca de un borde
+        var kbAnchor = null, kbFocus = null; // selección por teclado físico (Shift+flechas)
 
         var handleStart = document.getElementById('sel-start');
         var handleEnd = document.getElementById('sel-end');
@@ -233,6 +237,42 @@
             var length = (end.row - start.row) * term.cols + (end.col - start.col) + 1;
             if (length < 1) length = 1;
             term.select(start.col, start.row, length);
+        }
+
+        // Arrastre unificado (manija o "fresh"): fija el foco bajo el dedo y activa auto-scroll
+        // cerca de los bordes, para que la selección crezca sobre TODO el historial (no solo lo
+        // visible). Antes se topaba en el borde del viewport — esa era la limitación reportada.
+        function applyDrag(x, y) {
+            dragTouchX = x; dragTouchY = y;
+            if (activeAnchor) applySelection(activeAnchor, cellFromPoint(x, y));
+            updateAutoScroll();
+        }
+
+        function stopAutoScroll() {
+            if (autoScrollTimer) { clearInterval(autoScrollTimer); autoScrollTimer = null; }
+        }
+
+        function updateAutoScroll() {
+            var rect = screenRect();
+            var edge = Math.max(24, rect.height * 0.12);
+            var dir = 0;
+            if (dragTouchY < rect.top + edge) dir = -1;
+            else if (dragTouchY > rect.bottom - edge) dir = 1;
+            if (dir === 0) { stopAutoScroll(); return; }
+            if (autoScrollTimer) return;
+            autoScrollTimer = setInterval(function() {
+                if (!activeAnchor) { stopAutoScroll(); return; }
+                term.scrollLines(dir);
+                applySelection(activeAnchor, cellFromPoint(dragTouchX, dragTouchY));
+            }, 60);
+        }
+
+        // Desplaza el viewport lo justo para que [cell] quede visible (para selección por teclado).
+        function ensureVisible(cell) {
+            var vy = term.buffer.active.viewportY;
+            var rel = cell.row - vy;
+            if (rel < 0) term.scrollLines(rel);
+            else if (rel > term.rows - 1) term.scrollLines(rel - (term.rows - 1));
         }
 
         // Selecciona la palabra (secuencia de no-espacios) bajo la celda dada.
@@ -296,7 +336,9 @@
 
         function exitSelection() {
             selActive = false; dragMode = null; lpFired = false;
-            anchorCell = null; pressCell = null;
+            anchorCell = null; pressCell = null; activeAnchor = null;
+            kbAnchor = null; kbFocus = null;
+            stopAutoScroll();
             try { term.clearSelection(); } catch (e) {}
             hideHandles();
             notifySelecting(false);
@@ -335,10 +377,10 @@
                 var pos = term.getSelectionPosition();
                 if (!pos) return;
                 if (which === 'start') {
-                    anchorCell = { col: Math.max(0, pos.end.x - 1), row: pos.end.y };
+                    activeAnchor = { col: Math.max(0, pos.end.x - 1), row: pos.end.y };
                     dragMode = 'start';
                 } else {
-                    anchorCell = { col: pos.start.x, row: pos.start.y };
+                    activeAnchor = { col: pos.start.x, row: pos.start.y };
                     dragMode = 'end';
                 }
             }, { passive: false });
@@ -346,17 +388,68 @@
                 if (!dragMode || e.touches.length !== 1) return;
                 e.preventDefault(); e.stopPropagation();
                 var t = e.touches[0];
-                applySelection(anchorCell, cellFromPoint(t.clientX, t.clientY));
+                applyDrag(t.clientX, t.clientY);
             }, { passive: false });
             el.addEventListener('touchend', function(e) {
                 if (!dragMode) return;
                 e.preventDefault(); e.stopPropagation();
-                dragMode = null;
+                dragMode = null; stopAutoScroll();
                 positionHandles();
             }, { passive: false });
         }
         bindHandle(handleStart, 'start');
         bindHandle(handleEnd, 'end');
+
+        // --- Selección con teclado físico: Shift + flechas / Home / End (como un editor) ---
+        // Arranca el ancla en la posición del cursor y mueve el foco. Ctrl+Shift+C copia,
+        // Escape limpia. Devolver false evita que xterm mande la secuencia de escape al shell.
+        term.attachCustomKeyEventHandler(function(e) {
+            if (e.type !== 'keydown') return true;
+            var shift = e.shiftKey, ctrl = e.ctrlKey || e.metaKey, k = e.key;
+
+            if (ctrl && shift && (k === 'C' || k === 'c')) {
+                if (term.hasSelection && term.hasSelection()) { copySelection(); return false; }
+                return true;
+            }
+            if (k === 'Escape' && selActive) { exitSelection(); return false; }
+
+            var isSel = shift && (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'ArrowUp' ||
+                                  k === 'ArrowDown' || k === 'Home' || k === 'End');
+            if (isSel) {
+                if (!kbAnchor) {
+                    var cx = term.buffer.active.cursorX;
+                    var cy = term.buffer.active.viewportY + term.buffer.active.cursorY;
+                    kbAnchor = { col: cx, row: cy };
+                    kbFocus = { col: cx, row: cy };
+                }
+                var f = { col: kbFocus.col, row: kbFocus.row };
+                if (k === 'ArrowLeft') {
+                    if (f.col > 0) f.col--; else if (f.row > 0) { f.row--; f.col = term.cols - 1; }
+                } else if (k === 'ArrowRight') {
+                    if (f.col < term.cols - 1) f.col++; else { f.row++; f.col = 0; }
+                } else if (k === 'ArrowUp') {
+                    f.row = Math.max(0, f.row - 1);
+                } else if (k === 'ArrowDown') {
+                    f.row = Math.min(term.buffer.active.length - 1, f.row + 1);
+                } else if (k === 'Home') {
+                    f.col = 0;
+                } else if (k === 'End') {
+                    f.col = term.cols - 1;
+                }
+                kbFocus = f;
+                selActive = true;
+                ensureVisible(f);
+                applySelection(kbAnchor, kbFocus);
+                positionHandles();
+                notifySelecting(true);
+                return false;
+            }
+
+            // Cualquier otra tecla real (no modificador) cierra la selección y sigue el tecleo.
+            var mod = (k === 'Shift' || k === 'Control' || k === 'Alt' || k === 'Meta');
+            if (kbAnchor && !mod) { exitSelection(); }
+            return true;
+        });
 
         // Gestos sobre la terminal: pulsación larga → palabra; mantener+arrastrar → extender.
         (function() {
@@ -377,6 +470,7 @@
                     lpTimer = null; lpFired = true;
                     enterSelectionWord(cellFromPoint(downX, downY));
                     dragMode = 'fresh';
+                    activeAnchor = pressCell;
                 }, 400);
             }, { passive: false });
 
@@ -385,7 +479,7 @@
                 var t = e.touches[0];
                 if (dragMode === 'fresh') {
                     e.preventDefault();
-                    applySelection(pressCell, cellFromPoint(t.clientX, t.clientY));
+                    applyDrag(t.clientX, t.clientY);
                     return;
                 }
                 if (lpTimer) {
@@ -397,7 +491,7 @@
 
             host.addEventListener('touchend', function(e) {
                 if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
-                if (dragMode === 'fresh') { dragMode = null; positionHandles(); return; }
+                if (dragMode === 'fresh') { dragMode = null; stopAutoScroll(); positionHandles(); return; }
                 // Tap corto mientras hay selección → cerrar.
                 if (selActive && !lpFired) { exitSelection(); }
             }, { passive: false });
