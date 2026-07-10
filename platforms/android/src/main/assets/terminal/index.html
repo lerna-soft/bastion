@@ -110,8 +110,34 @@
             try { if (typeof positionHandles === 'function' && selActive) positionHandles(); } catch (e) {}
         }
 
-        // Fits escalonados: el WebView puede no tener aún su tamaño real al cargar.
-        [50, 150, 300, 600, 1000].forEach(function(d) { setTimeout(safeFit, d); });
+        // Arranca SIEMPRE ajustado. Dentro de un HorizontalPager de Android el WebView puede
+        // reportar tamaño 0 (o uno transitorio) durante los primeros cientos de ms, así que un fit
+        // escalonado de una sola pasada [50..1000ms] podía correr entero antes de que el contenedor
+        // tuviera su tamaño real — dejando el terminal en su 80x24 por defecto hasta que un zoom o
+        // rotación disparaba el ResizeObserver y recién ahí se ajustaba. En su lugar reintentamos el
+        // fit hasta que las dimensiones se estabilicen (mismo cols/rows dos veces seguidas con el
+        // contenedor ya con tamaño no-nulo) o hasta vencer el tope de seguridad.
+        function fitUntilStable() {
+            var lastCols = -1, lastRows = -1, stableHits = 0, elapsed = 0;
+            var STEP = 100, MAX = 6000;
+            var timer = setInterval(function() {
+                elapsed += STEP;
+                safeFit();
+                var el = document.getElementById('terminal');
+                var hasSize = el && el.clientWidth > 0 && el.clientHeight > 0;
+                if (hasSize && term.cols === lastCols && term.rows === lastRows) {
+                    stableHits++;
+                } else {
+                    stableHits = 0;
+                }
+                lastCols = term.cols;
+                lastRows = term.rows;
+                if ((hasSize && stableHits >= 2) || elapsed >= MAX) {
+                    clearInterval(timer);
+                }
+            }, STEP);
+        }
+        fitUntilStable();
 
         // ResizeObserver: recalcula al cambiar el tamaño real del contenedor (rotación, teclado,
         // volver a la pestaña, etc.) — window.resize solo no basta dentro de un WebView de Android.

@@ -160,7 +160,7 @@ object RemoteLogger {
             } else {
                 Log.w(TAG, "flushPendingFile: server unreachable, keeping ${content.lines().size} entries for next boot")
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.w(TAG, "flushPendingFile failed: ${e.message}")
         }
     }
@@ -228,7 +228,14 @@ object RemoteLogger {
             val code = conn.responseCode
             conn.disconnect()
             code in 200..299
-        } catch (_: Exception) { false }
+        } catch (_: Throwable) {
+            // MUST catch Throwable, not just Exception: on some devices (e.g. Galaxy Tab A9+ / SDK 36)
+            // url.openConnection() throws java.lang.AssertionError from the platform OkHttp SSL factory
+            // (getDefaultSSLSocketFactory), even for http:// URLs. An Error is not an Exception, so it
+            // escaped this catch, propagated out of the IO coroutine in init(), and crashed the app in
+            // a boot loop — the crash logger killing the app it exists to report on. Never fatal here.
+            false
+        }
     }
 
     private fun flush() {
@@ -240,7 +247,7 @@ object RemoteLogger {
                 b
             }
             if (batch.isNotEmpty()) httpPost(buildJsonArray(batch))
-        } catch (_: Exception) { } finally {
+        } catch (_: Throwable) { } finally {
             flushing.set(false)
         }
     }
@@ -264,7 +271,7 @@ object RemoteLogger {
                     b
                 }
                 httpPost(buildJsonArray(pending + entry))
-            } catch (_: Exception) { }
+            } catch (_: Throwable) { }
         }
     }
 
@@ -311,7 +318,7 @@ object RemoteLogger {
                 b
             }
             httpPost(buildJsonArray(pending + entry))
-        } catch (_: Exception) { }
+        } catch (_: Throwable) { }
         // Also sync flush the pending file as last resort (covers the case where httpPost above
         // failed transiently but a retry via the file-based path succeeds).
         dataDir?.let { dir ->
@@ -324,7 +331,7 @@ object RemoteLogger {
                         httpPost("[${content.replace("\n", ",")}]")
                     }
                 }
-            } catch (_: Exception) { }
+            } catch (_: Throwable) { }
         }
     }
 
