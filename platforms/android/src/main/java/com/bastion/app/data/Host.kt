@@ -19,6 +19,10 @@ data class Host(
     val username: String,
     val authType: AuthType = AuthType.PASSWORD,
     val useAgentForwarding: Boolean = false,
+    // HIM-019 — Jump host / ProxyJump: id de OTRO host del vault a través del cual se
+    // tunelea la conexión. null = conexión directa. La cadena se resuelve siguiendo
+    // jumpHostId de cada salto (A→B→C) en VaultRepository.resolveConnectionChain().
+    val jumpHostId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )

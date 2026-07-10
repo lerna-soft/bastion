@@ -16,6 +16,9 @@ interface HostDao {
     @Query("SELECT * FROM hosts WHERE id = :id")
     suspend fun getHostById(id: Long): Host?
 
+    @Query("SELECT * FROM hosts")
+    suspend fun getAllHostsList(): List<Host>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(host: Host): Long
 

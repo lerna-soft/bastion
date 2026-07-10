@@ -66,6 +66,23 @@ class VaultRepository(
         return hostId
     }
 
+    /**
+     * HIM-019 — Resuelve la cadena de saltos para conectar a [targetId].
+     * Sigue `jumpHostId` de cada host (target → jump → jump…) y devuelve la cadena
+     * ordenada del PRIMER salto (alcanzable directo desde el dispositivo) al DESTINO final,
+     * con sus secretos ya cargados. Conexión directa → lista de 1 elemento.
+     * Protegido contra ciclos (visited): si un jumpHostId apunta a un host ya visto, corta.
+     */
+    suspend fun resolveConnectionChain(targetId: Long): List<HostWithSecret> {
+        val all = dao.getAllHostsList()
+        val orderedIds = JumpHostChain.resolveChainIds(all, targetId)
+        if (orderedIds.size > 1) {
+            log.i("resolveConnectionChain: cadena de ${orderedIds.size} saltos para host $targetId")
+        }
+        // Carga los secretos de cada host en el orden resuelto (primer salto → destino).
+        return orderedIds.mapNotNull { getHostWithSecret(it) }
+    }
+
     suspend fun deleteHost(id: Long) {
         dao.deleteById(id)
         secrets.deleteSecret(id)

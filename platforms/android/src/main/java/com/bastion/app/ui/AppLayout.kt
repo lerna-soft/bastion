@@ -153,7 +153,15 @@ fun AppLayout(
         )
         selectedSection = NavSection.SESSIONS
         scope.launch { safe("AppLayout") { pagerState.animateScrollToPage(terminalSessions.size - 1) } }
-        scope.launch { safe("AppLayout") { startConnection(session, hostWithSecret) } }
+        scope.launch {
+            safe("AppLayout") {
+                // HIM-019: resuelve la cadena de saltos (jump hosts) del vault. Directo → [target].
+                val chain = withContext(Dispatchers.IO) {
+                    repository.resolveConnectionChain(hostInfo.id)
+                }
+                startConnection(session, if (chain.isEmpty()) listOf(hostWithSecret) else chain)
+            }
+        }
     }
 
     fun closeTerminalSession(index: Int) {
@@ -174,7 +182,6 @@ fun AppLayout(
     }
 
     val context = LocalContext.current
-    var searchQuery by remember { mutableStateOf("") }
     var showStats by remember { mutableStateOf(false) }
     var showHostPicker by remember { mutableStateOf(false) }
     var showCrashNotice by remember { mutableStateOf(RemoteLogger.hasUnseenIncident()) }
@@ -198,24 +205,11 @@ fun AppLayout(
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
             Sidebar(
                 selectedSection = selectedSection,
-                onSectionSelected = { selectedSection = it; searchQuery = "" },
+                onSectionSelected = { selectedSection = it },
                 onNewInstance = onNavigateToAddHost
             )
 
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                AppHeader(
-                    section = selectedSection,
-                    searchQuery = searchQuery,
-                    onSearchChange = { searchQuery = it },
-                    onConnect = {
-                        if (terminalSessions.isNotEmpty()) {
-                            selectedSection = NavSection.SESSIONS
-                            scope.launch { pagerState.animateScrollToPage(pagerState.currentPage) }
-                        }
-                    },
-                    terminalSessionsCount = terminalSessions.size
-                )
-
                 Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                     when (selectedSection) {
                         NavSection.SERVERS -> {
@@ -266,8 +260,6 @@ fun AppLayout(
                         NavSection.SSH_KEYS -> {
                             SSHKeysContent(
                                 repository = repository,
-                                searchQuery = searchQuery,
-                                onSearchChange = { searchQuery = it },
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
@@ -831,126 +823,6 @@ private fun SidebarLinkItem(
 }
 
 @Composable
-private fun AppHeader(
-    section: NavSection,
-    searchQuery: String,
-    onSearchChange: (String) -> Unit,
-    onConnect: () -> Unit,
-    terminalSessionsCount: Int
-) {
-    val context = LocalContext.current
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .width(200.dp)
-                        .height(32.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 8.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        BasicTextField(
-                            value = searchQuery,
-                            onValueChange = onSearchChange,
-                            singleLine = true,
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primaryContainer),
-                            textStyle = TextStyle(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 13.sp
-                            ),
-                            decorationBox = { innerTextField ->
-                                if (searchQuery.isEmpty()) {
-                                    Text(
-                                        "Global search...",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        fontSize = 13.sp
-                                    )
-                                }
-                                innerTextField()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-
-                // HIM-015: antes era un ícono de "Notifications" (campana) que en realidad abría
-                // el repo de GitHub — mal etiquetado (no hay sistema de notificaciones). El botón
-                // sí funciona, solo estaba mal identificado; se corrige el ícono/label.
-                IconButton(
-                    onClick = {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lerna-soft/bastion"))
-                        )
-                    },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Code,
-                        contentDescription = "Repositorio en GitHub",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                // HIM-015: antes era un no-op silencioso cuando no había sesiones abiertas
-                // (terminalSessionsCount se recibía pero nunca se usaba). Ahora se ve deshabilitado.
-                val hasSessions = terminalSessionsCount > 0
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(
-                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (hasSessions) 0.2f else 0.05f)
-                        )
-                        .border(
-                            1.dp,
-                            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = if (hasSessions) 1f else 0.3f),
-                            RoundedCornerShape(4.dp)
-                        )
-                        .clickable(enabled = hasSessions, onClick = onConnect)
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "Connect",
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = if (hasSessions) 1f else 0.4f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun SessionFooter(
     sessionTitle: String,
     isConnected: Boolean
@@ -1227,38 +1099,56 @@ private fun EmptyTerminalPlaceholder(onBrowseServers: () -> Unit) {
     }
 }
 
-private suspend fun startConnection(session: SshSession, host: HostWithSecret) {
+/**
+ * Conecta [session] a través de la [chain] resuelta (jump hosts). El último elemento es el destino
+ * final; los anteriores son los saltos en orden (primer salto = alcanzable directo desde el móvil).
+ * Una cadena de un solo elemento = conexión directa (comportamiento previo a HIM-019).
+ */
+private suspend fun startConnection(session: SshSession, chain: List<HostWithSecret>) {
     val log = RemoteLogger.logger("Connection")
-    log.i("start ${host.host.username}@${host.host.hostname}:${host.host.port}")
+    if (chain.isEmpty()) return
+    val target = chain.last()
+    val jumpHosts = chain.dropLast(1)
+    val route = chain.joinToString(" → ") { "${it.host.username}@${it.host.hostname}:${it.host.port}" }
+    log.i("start [$route]")
     withContext(Dispatchers.IO) {
         try {
-            val keyPair = if (host.host.authType == com.bastion.app.data.AuthType.PUBLIC_KEY) {
-                host.privateKeyPem?.let { pem ->
-                    try {
-                        loadKeyPairFromPem(pem, host.privateKeyPassphrase)
-                    } catch (e: Exception) {
-                        log.e("key load failed: ${e.message}", e)
-                        session.setError(
-                            phase = "key_load",
-                            message = "Error loading private key: ${e.message}",
-                            exception = e
-                        )
-                        return@withContext
+            // Construye el AuthConfig de un host, cargando su llave privada si aplica.
+            // Devuelve null y marca error en la sesión si la llave no carga.
+            fun buildConfig(h: HostWithSecret): AuthConfig? {
+                val keyPair = if (h.host.authType == com.bastion.app.data.AuthType.PUBLIC_KEY) {
+                    h.privateKeyPem?.let { pem ->
+                        try {
+                            loadKeyPairFromPem(pem, h.privateKeyPassphrase)
+                        } catch (e: Exception) {
+                            log.e("key load failed (${h.host.hostname}): ${e.message}", e)
+                            session.setError(
+                                phase = "key_load",
+                                message = "Error loading private key for ${h.host.hostname}: ${e.message}",
+                                exception = e
+                            )
+                            return null
+                        }
                     }
+                } else {
+                    null
                 }
-            } else {
-                null
+                return AuthConfig(
+                    hostname = h.host.hostname,
+                    port = h.host.port,
+                    username = h.host.username,
+                    password = h.password,
+                    keyPair = keyPair
+                )
             }
 
-            val config = AuthConfig(
-                hostname = host.host.hostname,
-                port = host.host.port,
-                username = host.host.username,
-                password = host.password,
-                keyPair = keyPair
-            )
+            val targetConfig = buildConfig(target) ?: return@withContext
+            val jumpConfigs = ArrayList<AuthConfig>(jumpHosts.size)
+            for (h in jumpHosts) {
+                jumpConfigs.add(buildConfig(h) ?: return@withContext)
+            }
 
-            session.connect(config).onSuccess {
+            session.connect(targetConfig, jumpConfigs).onSuccess {
                 log.i("connected, opening shell")
                 session.openShell()
             }.onFailure { e ->

@@ -2,6 +2,7 @@ package com.bastion.app.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AltRoute
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
@@ -29,6 +32,8 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
@@ -37,6 +42,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -75,6 +81,9 @@ fun HostEditScreen(
     var privateKey by remember { mutableStateOf("") }
     var passphrase by remember { mutableStateOf("") }
     var authType by remember { mutableStateOf(AuthType.PASSWORD) }
+    // HIM-019 — jump host (ProxyJump): id de otro host del vault, o null = conexión directa.
+    var jumpHostId by remember { mutableStateOf<Long?>(null) }
+    var jumpMenuOpen by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
     var showPassphrase by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
@@ -83,6 +92,9 @@ fun HostEditScreen(
     var portError by remember { mutableStateOf(false) }
 
     val isEdit = hostId != null
+    // Hosts del vault disponibles como jump host (para el selector). Se excluye a sí mismo y
+    // cualquier candidato que crearía un ciclo (ver jumpHostCandidates()).
+    val allHosts by repository.getAllHosts().collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val log = remember { RemoteLogger.logger("HostEdit") }
@@ -99,6 +111,7 @@ fun HostEditScreen(
                 port = existing.host.port.toString()
                 username = existing.host.username
                 authType = existing.host.authType
+                jumpHostId = existing.host.jumpHostId
                 password = existing.password ?: ""
                 privateKey = existing.privateKeyPem ?: ""
                 passphrase = existing.privateKeyPassphrase ?: ""
@@ -124,7 +137,8 @@ fun HostEditScreen(
             hostname = hostname.trim(),
             port = portNum,
             username = username.trim(),
-            authType = authType
+            authType = authType,
+            jumpHostId = jumpHostId
         )
         var savedId: Long? = null
         scope.launch {
@@ -309,6 +323,88 @@ fun HostEditScreen(
                     isPassword = true,
                     showPassword = showPassphrase,
                     onTogglePassword = { showPassphrase = !showPassphrase }
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            // ── HIM-019: Jump host (ProxyJump) ────────────────────────────
+            val candidates = remember(allHosts, hostId) {
+                com.bastion.app.data.JumpHostChain.candidates(allHosts, hostId)
+            }
+            val selectedJump = allHosts.firstOrNull { it.id == jumpHostId }
+            Column(Modifier.fillMaxWidth()) {
+                Text(
+                    "JUMP HOST (OPTIONAL)",
+                    color = Color(0xFF8E9192),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF1B2227), RoundedCornerShape(8.dp))
+                            .clickable { jumpMenuOpen = true }
+                            .padding(horizontal = 12.dp, vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.AltRoute,
+                            contentDescription = null,
+                            tint = Color(0xFF8E9192),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = selectedJump?.let { "${it.name} (${it.hostname})" }
+                                ?: "Direct connection (no jump)",
+                            color = if (selectedJump != null) Color(0xFFE2E2E2) else Color(0xFF8E9192),
+                            fontSize = 15.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = "Select jump host",
+                            tint = Color(0xFF8E9192)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = jumpMenuOpen,
+                        onDismissRequest = { jumpMenuOpen = false },
+                        modifier = Modifier.background(Color(0xFF1B2227))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Direct connection (no jump)", color = Color(0xFFE2E2E2)) },
+                            onClick = { jumpHostId = null; jumpMenuOpen = false }
+                        )
+                        candidates.forEach { h ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "${h.name}  ·  ${h.username}@${h.hostname}:${h.port}",
+                                        color = Color(0xFFE2E2E2)
+                                    )
+                                },
+                                onClick = { jumpHostId = h.id; jumpMenuOpen = false }
+                            )
+                        }
+                        if (candidates.isEmpty()) {
+                            DropdownMenuItem(
+                                enabled = false,
+                                text = { Text("No other servers saved", color = Color(0xFF8E9192)) },
+                                onClick = {}
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Route the connection through another saved server (bastion). " +
+                        "Chains automatically if that server also has a jump host.",
+                    color = Color(0xFF8E9192),
+                    fontSize = 12.sp
                 )
             }
 

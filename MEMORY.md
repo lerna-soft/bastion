@@ -8,3 +8,4 @@
 - [Inconsistencias pendientes](memoria/inconsistencias-pendientes.md) — 2 design systems contradictorios, specs "borrador" ya liberadas, cabos sueltos
 - [Datos operativos](memoria/datos-operativos.md) — rutas, puerto 8765, IDs Stitch, comandos clave
 - [Estado actual y roadmap](memoria/estado-actual-roadmap.md) — v1.1.9 real, corrige el PROYECTO.md desactualizado
+- [HIM-019 Jump hosts / ProxyJump](memoria/him-019-jump-hosts-proxyjump.md) — conexión A→B→C encadenada por túneles SSH (jumpHostId + local port-forward MINA); compila, falta build+device
