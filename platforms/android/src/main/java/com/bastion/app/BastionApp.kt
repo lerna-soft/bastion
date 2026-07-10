@@ -96,10 +96,15 @@ class BastionApp : Application() {
                     }
                     w.write("--- End ---\n")
                 }
-            } catch (_: Exception) { }
+            } catch (_: Throwable) { }
 
             // Luego intentar registrar/enviar (best-effort, puede tocar red).
-            try { RemoteLogger.crash(thread, throwable) } catch (_: Exception) { }
+            // DEBE ser catch(Throwable), NO catch(Exception): en el Galaxy Tab A9+ / SDK 36 la
+            // fábrica SSL de la OkHttp de plataforma lanza java.lang.AssertionError (un Error, no
+            // una Exception) desde URL.openConnection(). Con catch(Exception) ese Error escapaba
+            // del handler de crash → re-entraba al propio handler → cascada de "Fatal exception in
+            // coroutines machinery" y crashes repetidos. El reportero de crashes jamás debe crashear.
+            try { RemoteLogger.crash(thread, throwable) } catch (_: Throwable) { }
 
             // Requisito HIM-009: la app nunca debe cerrarse. Un error en un hilo de fondo se
             // registra y se traga — la app sigue viva. Solo el hilo principal es irrecuperable:

@@ -214,6 +214,12 @@ class SshSession(
                         }
                         _output.emit(buf.copyOf(len))
                     }
+                    // EOF = el remoto cerró el shell (logout / conexión caída). Es un fin normal,
+                    // no un error: pasamos a CLOSED para que la UI muestre "Disconnected" y no un
+                    // stack trace. Si close() ya nos llevó a CLOSING/CLOSED, no lo pisamos.
+                    if (_state.value == SessionState.SHELL_ACTIVE) {
+                        setState(SessionState.CLOSED)
+                    }
                 } catch (e: Exception) {
                     log.e("stdout read error: ${e.message}", e)
                     val err = ConnectionError(
@@ -253,16 +259,12 @@ class SshSession(
             stdinStream?.write(data)
             stdinStream?.flush()
         } catch (e: Throwable) {
-            // "Pipe closed" ocurre al escribir en una sesión que ya murió (red caída / cierre).
-            // Nunca debe propagarse (tumbaría la app); se registra y se marca la sesión en error.
-            log.w("write error (sesión probablemente cerrada): ${e.message}")
-            val err = ConnectionError(
-                phase = "write",
-                message = e.message ?: e.javaClass.simpleName,
-                exceptionText = e.stackTraceToString()
-            )
-            _error.value = err
-            setState(SessionState.ERROR)
+            // Escribir sobre un pipe ya cerrado significa que la sesión murió (logout remoto /
+            // red caída / canal cerrado). Es un fin de conexión, NO un error accionable: nunca
+            // debe propagarse (tumbaría la app) y NO debemos mostrar un stack trace al usuario.
+            // Pasamos a CLOSED → la UI muestra "Disconnected" en vez del overlay de error.
+            log.w("write sobre sesión cerrada, marcando desconectada: ${e.message}")
+            setState(SessionState.CLOSED)
         }
     }
 

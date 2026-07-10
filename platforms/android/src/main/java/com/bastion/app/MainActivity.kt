@@ -76,6 +76,24 @@ class MainActivity : ComponentActivity() {
         (application as BastionApp).checkForUpdateIfIdle()
     }
 
+    // Bug conocido de Jetpack Compose (UI 1.7.x, Compose BOM 2024.10.01): al llegar un evento de
+    // teclado —físico o IME— mientras Compose está invalidando el sistema de foco (recomposición /
+    // transición de foco), FocusOwnerImpl lanza
+    //   IllegalStateException: "Dispatching key event while focus system is invalidated."
+    // en el HILO PRINCIPAL (androidx.compose.ui.focus.FocusOwnerImpl.dispatchKeyEvent). Al ser
+    // main-thread, el uncaught handler de BastionApp mata el proceso (por diseño) y la app "se
+    // cierra sola" — muy reproducible en el Galaxy Tab A9+ (SM-X210) con teclado físico. El evento
+    // sube por Activity.dispatchKeyEvent, así que lo interceptamos aquí ANTES de que la excepción
+    // desenrolle el Looper: un evento de tecla que no se puede despachar NUNCA debe tumbar la app.
+    // Lo tragamos (return false = "no manejado") y la UI sigue viva. HIM-009.
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean =
+        try {
+            super.dispatchKeyEvent(event)
+        } catch (e: IllegalStateException) {
+            log.w("dispatchKeyEvent tragado (bug de foco de Compose): ${e.message}")
+            false
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         log.i("onCreate")
