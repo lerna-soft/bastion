@@ -13,8 +13,8 @@ android {
         applicationId = "com.bastion.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 48
-        versionName = "1.1.36"
+        versionCode = 49
+        versionName = "1.1.37"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -88,7 +88,11 @@ dependencies {
     // sshd/bouncycastle/eddsa/coroutines-core llegan transitivos vía las deps `api` de :core.
     implementation(project(":core"))
 
-    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    // Subido de 2024.10.01 (compose-ui 1.7.5) a 2025.06.01 (compose-ui 1.8.3) para corregir el
+    // crash IllegalStateException "Dispatching intercepted soft keyboard event while focus system
+    // is invalidated" (FocusOwnerImpl) al remover un AndroidView enfocado (WebView de la terminal)
+    // con el teclado suave activo. Fix entró en compose-ui 1.8.0; 1.8.3 es el último parche de esa línea.
+    val composeBom = platform("androidx.compose:compose-bom:2025.06.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
